@@ -1,19 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  StyleSheet,
-  Text,
   View,
+  Text,
   TextInput,
   TouchableOpacity,
+  StyleSheet,
   SafeAreaView,
   Alert,
   Animated,
 } from 'react-native';
-import { account } from '../lib/appwriteConfig'; // ✅ Adjust this path if needed
 
-export default function LoginPage({ navigation }) {
+import { account } from '../lib/appwriteConfig'; // Adjust the path as needed
+import { ID } from 'appwrite';
+
+export default function SignupPage({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -25,22 +28,6 @@ export default function LoginPage({ navigation }) {
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
-
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password.');
-      return;
-    }
-
-    try {
-      await account.createEmailSession(email, password);
-      Alert.alert('Success', 'Login successful!');
-      navigation.navigate('Home');
-    } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Login Failed', error?.message || 'Something went wrong.');
-    }
-  };
 
   const onPressIn = () => {
     Animated.spring(scaleAnim, {
@@ -58,10 +45,29 @@ export default function LoginPage({ navigation }) {
     }).start();
   };
 
+  const handleSignup = async () => {
+    if (!email || !password || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match.');
+      return;
+    }
+
+    try {
+      await account.create(ID.unique(), email, password);
+      Alert.alert('Success', 'Account created successfully!');
+      navigation.navigate('Login'); // Make sure "Login" is the correct screen name in your navigator
+    } catch (error) {
+      Alert.alert('Signup Error', error.message);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Animated.View style={{ opacity: fadeAnim, flex: 1, justifyContent: 'center' }}>
-        <Text style={styles.header}>Login</Text>
+        <Text style={styles.header}>Sign Up</Text>
 
         <TextInput
           style={styles.input}
@@ -83,20 +89,29 @@ export default function LoginPage({ navigation }) {
           secureTextEntry
         />
 
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm Password"
+          placeholderTextColor="#94A3B8"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+        />
+
         <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
           <TouchableOpacity
-            style={styles.loginButton}
-            onPress={handleLogin}
+            style={styles.signupButton}
+            onPress={handleSignup}
             activeOpacity={0.8}
             onPressIn={onPressIn}
             onPressOut={onPressOut}
           >
-            <Text style={styles.loginButtonText}>Sign In</Text>
+            <Text style={styles.signupButtonText}>Create Account</Text>
           </TouchableOpacity>
         </Animated.View>
 
-        <TouchableOpacity onPress={() => navigation.navigate('SignupPage')}>
-          <Text style={styles.signupText}>Don't have an account? Sign Up</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.loginRedirectText}>Already have an account? Log In</Text>
         </TouchableOpacity>
       </Animated.View>
     </SafeAreaView>
@@ -130,7 +145,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
   },
-  loginButton: {
+  signupButton: {
     backgroundColor: '#38BDF8',
     paddingVertical: 14,
     borderRadius: 14,
@@ -142,12 +157,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
   },
-  loginButtonText: {
+  signupButtonText: {
     color: '#0F172A',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  signupText: {
+  loginRedirectText: {
     color: '#CBD5E1',
     fontSize: 14,
     textAlign: 'center',

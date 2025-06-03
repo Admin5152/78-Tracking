@@ -7,6 +7,7 @@ import FriendPage from './screens/FriendPage'; // make sure file name matches ex
 import HomePage from './screens/HomePage';
 import SettingsPage from './screens/SettingsPage'; 
 import LoginPage from './screens/LoginPage';
+import SignupPage from './screens/SignupPage'; // Import SignupPage if needed
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -14,7 +15,9 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginPage} options={{ headerShown: false }} />
+        <Stack.Screen name="SignupPage" component={SignupPage} options={{ headerShown: false }} />
         {/* Login screen should be the first screen shown */}
+
 
         <Stack.Screen name="Home" component={HomePage} options={{ headerShown: false }} />
         <Stack.Screen name="MapPage" component={MapPage} options={{ headerShown: false }} />
