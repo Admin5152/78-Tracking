@@ -1,15 +1,24 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { account } from '../lib/appwriteConfig'; // ✅ Import Appwrite account instance
 
 export default function SettingsPage() {
   const navigation = useNavigation();
+  const [user, setUser] = useState(null); // State to hold user data
 
-  const user = {
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-  };
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await account.get(); // Get current logged-in user's data
+        setUser(response); // Set the user data
+      } catch (error) {
+        Alert.alert('Error', error.message || 'An error occurred while fetching user data.');
+      }
+    };
+
+    fetchUserData();
+  }, []); // Fetch user data on component mount
 
   const handleLogout = () => {
     Alert.alert(
@@ -39,6 +48,14 @@ export default function SettingsPage() {
     );
   };
 
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.info}>LOADING USER INFORMATION PLEASE WAIT ... </Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
@@ -49,8 +66,8 @@ export default function SettingsPage() {
       </View>
 
       <View style={styles.infoBox}>
-        <Text style={styles.label}>Name:</Text>
-        <Text style={styles.info}>{user.name}</Text>
+        {/* <Text style={styles.label}>Name:</Text>
+        <Text style={styles.info}>{user.name}</Text> */}
         <Text style={styles.label}>Email:</Text>
         <Text style={styles.info}>{user.email}</Text>
       </View>
@@ -65,9 +82,6 @@ export default function SettingsPage() {
     </SafeAreaView>
   );
 }
-
-// [styles unchanged]
-
 
 const styles = StyleSheet.create({
   container: {

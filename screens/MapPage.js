@@ -19,6 +19,8 @@ export default function MapPage({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
+    let subscription;
+
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -26,27 +28,37 @@ export default function MapPage({ navigation }) {
         return;
       }
 
-      let currentLocation = await Location.getCurrentPositionAsync({});
-      setLocation(currentLocation.coords);
-      setLoading(false);
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5000,
+          distanceInterval: 5,
+        },
+        (loc) => {
+          setLocation(loc.coords);
+          setLoading(false);
+        }
+      );
     })();
+
+    return () => {
+      if (subscription) {
+        subscription.remove(); // Clean up when unmounted
+      }
+    };
   }, []);
 
   const handleMenuPress = (option) => {
     setModalVisible(false);
-
     switch (option) {
-
       case "FriendPage":
         navigation.navigate("Friends");
         break;
-
       case "Home":
         navigation.navigate("Home");
         break;
       case "MapPage":
         navigation.navigate("MapPage");
-        
         break;
       case "Settings":
         navigation.navigate("Settings");
@@ -60,11 +72,11 @@ export default function MapPage({ navigation }) {
     Alert.alert("Emergency", "Emergency services have been contacted!");
   };
 
-  if (loading) {
+  if (loading || !location) {
     return (
       <SafeAreaView style={styles.loader}>
         <ActivityIndicator size="large" color="#38bdf8" />
-        <Text style={{ color: '#fff', marginTop: 10 }}>Fetching your location...</Text>
+        <Text style={{ color: '#fff', marginTop: 10 }}>Fetching your live location...</Text>
       </SafeAreaView>
     );
   }
@@ -82,7 +94,7 @@ export default function MapPage({ navigation }) {
       {/* Map */}
       <MapView
         style={{ flex: 1 }}
-        initialRegion={{
+        region={{
           latitude: location.latitude,
           longitude: location.longitude,
           latitudeDelta: 0.01,
@@ -91,7 +103,10 @@ export default function MapPage({ navigation }) {
         showsUserLocation={true}
       >
         <Marker
-          coordinate={{ latitude: location.latitude, longitude: location.longitude }}
+          coordinate={{
+            latitude: location.latitude,
+            longitude: location.longitude,
+          }}
           title="You are here"
           pinColor="blue"
         />
@@ -115,9 +130,6 @@ export default function MapPage({ navigation }) {
             <Pressable style={styles.modalItem} onPress={() => handleMenuPress("Home")}>
               <Text style={styles.modalText}>🏠 Home</Text>
             </Pressable>
-            {/* <Pressable style={styles.modalItem} onPress={() => handleMenuPress("Map View")}>
-              <Text style={styles.modalText}>🗺️ Map View</Text>
-            </Pressable> */}
             <Pressable style={styles.modalItem} onPress={() => handleMenuPress("FriendPage")}>
               <Text style={styles.modalText}>👥 Friends</Text>
             </Pressable>
@@ -133,6 +145,7 @@ export default function MapPage({ navigation }) {
     </SafeAreaView>
   );
 }
+
 
 
 const styles = StyleSheet.create({

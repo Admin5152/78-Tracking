@@ -13,16 +13,18 @@ import {
   TextInput,
   ActivityIndicator
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native'; // ✅ Import navigation
+import { useNavigation } from '@react-navigation/native';
 
 export default function FriendPage() {
   const [modalVisible, setModalVisible] = useState(false);
+  const [addFriendModalVisible, setAddFriendModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [newFriendId, setNewFriendId] = useState("");
   const [peopleYouTrack, setPeopleYouTrack] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const navigation = useNavigation(); // ✅ Get navigation object
+  const navigation = useNavigation();
 
   const handleMenuPress = (option) => {
     setModalVisible(false);
@@ -55,9 +57,7 @@ export default function FriendPage() {
     const fetchFriends = async () => {
       try {
         const response = await fetch(API_URL);
-        if (!response.ok) {
-          throw new Error("Failed to fetch friends");
-        }
+        if (!response.ok) throw new Error("Failed to fetch friends");
         const data = await response.json();
         setPeopleYouTrack(data);
       } catch (err) {
@@ -116,10 +116,15 @@ export default function FriendPage() {
         />
       )}
 
+      <TouchableOpacity style={styles.addFriendButton} onPress={() => setAddFriendModalVisible(true)}>
+        <Text style={styles.addFriendText}>➕ Add Friend</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
         <Text style={styles.emergencyText}>🚨 Emergency</Text>
       </TouchableOpacity>
 
+      {/* Menu Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -144,11 +149,46 @@ export default function FriendPage() {
           </View>
         </View>
       </Modal>
+
+      {/* Add Friend Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={addFriendModalVisible}
+        onRequestClose={() => setAddFriendModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalHeader}>Add Friend</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Enter friend's ID"
+              placeholderTextColor="#94a3b8"
+              value={newFriendId}
+              onChangeText={setNewFriendId}
+            />
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => {
+                Alert.alert("Friend Added", `Tracking ID: ${newFriendId}`);
+                setNewFriendId("");
+                setAddFriendModalVisible(false);
+              }}
+            >
+              <Text style={styles.addButtonText}>Add</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setAddFriendModalVisible(false)}
+              style={styles.modalClose}
+            >
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
-
-// ... (styles unchanged)
 
 const styles = StyleSheet.create({
   container: {
@@ -177,30 +217,75 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F8FAFC',
   },
-  contentBox: {
+  searchInput: {
     backgroundColor: '#1E293B',
-    padding: 25,
-    borderRadius: 16,
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
+    padding: 12,
+    borderRadius: 12,
+    color: '#F8FAFC',
+    marginBottom: 20,
   },
-  welcomeText: {
-    color: '#38BDF8',
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
   },
-  contentText: {
-    color: '#CBD5E1',
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  info: {
+    flex: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  name: {
     fontSize: 16,
-    lineHeight: 22,
+    fontWeight: '600',
+    color: '#F8FAFC',
+    marginRight: 8,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  details: {
+    fontSize: 14,
+    color: '#CBD5E1',
+  },
+  time: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  addFriendButton: {
+    marginTop: 10,
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 50,
+    alignItems: 'center',
+    alignSelf: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  addFriendText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   emergencyBtn: {
-    marginTop: 50,
+    marginTop: 20,
     backgroundColor: '#DC2626',
     paddingVertical: 15,
     paddingHorizontal: 20,
@@ -256,5 +341,17 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  addButton: {
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

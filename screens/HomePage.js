@@ -21,6 +21,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let locationSubscription;
+
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -28,10 +30,24 @@ export default function HomePage() {
         return;
       }
 
-      const currentLocation = await Location.getCurrentPositionAsync({});
-      setLocation(currentLocation.coords);
-      setLoading(false);
+      locationSubscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5000,
+          distanceInterval: 5,
+        },
+        (loc) => {
+          setLocation(loc.coords);
+          setLoading(false);
+        }
+      );
     })();
+
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
   }, []);
 
   const handleMenuPress = (option) => {
@@ -78,12 +94,12 @@ export default function HomePage() {
 
       {/* Map Section */}
       <View style={styles.mapContainer}>
-        {loading ? (
+        {loading || !location ? (
           <ActivityIndicator size="large" color="#38bdf8" />
         ) : (
           <MapView
             style={styles.map}
-            initialRegion={{
+            region={{
               latitude: location.latitude,
               longitude: location.longitude,
               latitudeDelta: 0.01,
@@ -142,9 +158,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 40,
   },
-
-    mapContainer: {
-    height: '40%', // 40-50% of screen height
+  mapContainer: {
+    height: '40%',
     marginTop: 20,
     borderRadius: 16,
     overflow: 'hidden',
@@ -152,8 +167,6 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-
-
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
