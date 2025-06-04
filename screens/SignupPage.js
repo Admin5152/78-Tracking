@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 import { account } from '../lib/appwriteConfig'; // Adjust the path as needed
-import { ID } from 'appwrite';
+import { ID } from 'appwrite'; // ✅ Correct
 
 export default function SignupPage({ navigation }) {
   const [email, setEmail] = useState('');

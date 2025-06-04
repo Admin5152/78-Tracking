@@ -1,34 +1,39 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { account } from '../lib/appwriteConfig'; // ✅ Import Appwrite account instance
 
 export default function SettingsPage() {
   const navigation = useNavigation();
 
-  // Replace with actual user data when available
   const user = {
     name: 'John Doe',
     email: 'john.doe@example.com',
   };
 
   const handleLogout = () => {
-    // Here you can also clear auth tokens or user session if you have any
-
     Alert.alert(
       "Logout",
       "Are you sure you want to log out?",
       [
         {
           text: "Cancel",
-          style: "cancel"
+          style: "cancel",
         },
         {
           text: "Logout",
-          onPress: () => navigation.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
-          }),
-          style: "destructive"
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await account.deleteSession('current'); // ✅ Terminate session
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              Alert.alert('Logout Failed', error.message || 'An error occurred while logging out.');
+            }
+          },
         }
       ]
     );
@@ -36,7 +41,6 @@ export default function SettingsPage() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with back button */}
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backText}>←</Text>
@@ -44,7 +48,6 @@ export default function SettingsPage() {
         <Text style={styles.header}>Settings</Text>
       </View>
 
-      {/* User Info Section */}
       <View style={styles.infoBox}>
         <Text style={styles.label}>Name:</Text>
         <Text style={styles.info}>{user.name}</Text>
@@ -52,18 +55,19 @@ export default function SettingsPage() {
         <Text style={styles.info}>{user.email}</Text>
       </View>
 
-      {/* Placeholder for other settings */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>More Settings Coming Soon...</Text>
       </View>
 
-      {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutButtonText}>Log Out</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
 }
+
+// [styles unchanged]
+
 
 const styles = StyleSheet.create({
   container: {

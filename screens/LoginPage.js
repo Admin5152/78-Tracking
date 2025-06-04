@@ -27,20 +27,31 @@ export default function LoginPage({ navigation }) {
   }, [fadeAnim]);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password.');
-      return;
-    }
+  if (!email || !password) {
+    Alert.alert('Error', 'Please enter email and password.');
+    return;
+  }
 
-    try {
-      await account.createEmailSession(email, password);
-      Alert.alert('Success', 'Login successful!');
-      navigation.navigate('Home');
-    } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Login Failed', error?.message || 'Something went wrong.');
-    }
-  };
+  try {
+    // 🔁 Log out current session if one exists
+    await account.deleteSession('current');
+  } catch (e) {
+    // It's okay if no session was active
+    console.log('No existing session to delete.');
+  }
+
+  try {
+    // 🔐 Proceed with login
+    await account.createEmailSession(email, password);
+    Alert.alert('Login Successful!');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }], // Update with your actual home screen
+    });
+  } catch (error) {
+    Alert.alert('Login Error', error.message);
+  }
+};
 
   const onPressIn = () => {
     Animated.spring(scaleAnim, {
