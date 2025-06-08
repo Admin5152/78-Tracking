@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   addFriendButton: {
-    marginTop: 550, // changed from 550 to relative spacing
+    marginTop: 16, // changed from 550 to relative spacing
     backgroundColor: '#3B82F6', // blue
     paddingVertical: 12,
     borderRadius: 50,
