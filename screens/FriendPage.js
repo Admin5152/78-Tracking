@@ -11,7 +11,11 @@ import {
   Pressable,
   Alert,
   TextInput,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
@@ -25,6 +29,8 @@ export default function FriendPage() {
   const [error, setError] = useState(null);
 
   const navigation = useNavigation();
+  const screenWidth = Dimensions.get('window').width;
+  const screenHeight = Dimensions.get('window').height;
 
   const handleMenuPress = (option) => {
     setModalVisible(false);
@@ -77,72 +83,81 @@ export default function FriendPage() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.menuButton}>
-          <Text style={styles.menuText}>☰</Text>
-        </TouchableOpacity>
-        <Text style={styles.header}>People You Track</Text>
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.headerContainer}>
+          <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.menuButton}>
+            <Text style={styles.menuText}>☰</Text>
+          </TouchableOpacity>
+          <Text style={styles.header}>People You Track</Text>
+        </View>
 
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search by name..."
-        placeholderTextColor="#94a3b8"
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-      />
-
-      {loading ? (
-        <ActivityIndicator size="large" color="#fff" />
-      ) : error ? (
-        <Text style={{ color: 'red', textAlign: 'center' }}>{error}</Text>
-      ) : (
-        <FlatList
-          data={filteredPeople}
-          keyExtractor={(item) => item.name}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Image source={{ uri: item.image }} style={styles.avatar} />
-              <View style={styles.info}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.name}>{item.name}</Text>
-                  {renderStatus(item.statusColor)}
-                </View>
-                <Text style={styles.details}>{item.activity} • {item.location}</Text>
-              </View>
-              <Text style={styles.time}>{item.time}</Text>
-            </View>
-          )}
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by name..."
+          placeholderTextColor="#94a3b8"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
         />
-      )}
 
-      <TouchableOpacity style={styles.addFriendButton} onPress={() => setAddFriendModalVisible(true)}>
-        <Text style={styles.addFriendText}>➕ Add Friend</Text>
-      </TouchableOpacity>
+        {loading ? (
+          <ActivityIndicator size="large" color="#000" />
+        ) : error ? (
+          <Text style={{ color: 'red', textAlign: 'center' }}>{error}</Text>
+        ) : (
+          <FlatList
+            data={filteredPeople}
+            keyExtractor={(item) => item.name}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <Image source={{ uri: item.image }} style={styles.avatar} />
+                <View style={styles.info}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.name}>{item.name}</Text>
+                    {renderStatus(item.statusColor)}
+                  </View>
+                  <Text style={styles.details}>{item.activity} • {item.location}</Text>
+                </View>
+                <Text style={styles.time}>{item.time}</Text>
+              </View>
+            )}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            style={{ flexGrow: 0, maxHeight: screenHeight * 0.55 }}
+            keyboardShouldPersistTaps="handled"
+          />
+        )}
 
-      <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
-        <Text style={styles.emergencyText}>🚨 Emergency</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={[styles.addFriendButton, { width: screenWidth * 0.8 }]} onPress={() => setAddFriendModalVisible(true)}>
+          <Text style={styles.addFriendText}>➕ Add Friend</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.emergencyBtn, { width: screenWidth * 0.8 }]} onPress={handleEmergency}>
+          <Text style={styles.emergencyText}>🚨 Emergency</Text>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
 
       {/* Menu Modal */}
       <Modal
         animationType="slide"
-        transparent={true}
+        transparent
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalHeader}>Menu</Text>
-            <Pressable style={styles.modalItem} onPress={() => handleMenuPress("Home")}>
-              <Text style={styles.modalText}>🏠 Home</Text>
-            </Pressable>
-            <Pressable style={styles.modalItem} onPress={() => handleMenuPress("Map View")}>
-              <Text style={styles.modalText}>🗺️ Map View</Text>
-            </Pressable>
-            <Pressable style={styles.modalItem} onPress={() => handleMenuPress("Settings")}>
-              <Text style={styles.modalText}>⚙️ Settings</Text>
-            </Pressable>
+            {["Home", "Map View", "Settings"].map((item) => (
+              <Pressable key={item} style={styles.modalItem} onPress={() => handleMenuPress(item)}>
+                <Text style={styles.modalText}>
+                  {item === "Home" && "🏠 "}
+                  {item === "Map View" && "🗺️ "}
+                  {item === "Settings" && "⚙️ "}
+                  {item}
+                </Text>
+              </Pressable>
+            ))}
             <Pressable style={styles.modalClose} onPress={() => setModalVisible(false)}>
               <Text style={styles.modalCloseText}>Close</Text>
             </Pressable>
@@ -153,7 +168,7 @@ export default function FriendPage() {
       {/* Add Friend Modal */}
       <Modal
         animationType="fade"
-        transparent={true}
+        transparent
         visible={addFriendModalVisible}
         onRequestClose={() => setAddFriendModalVisible(false)}
       >
@@ -193,44 +208,49 @@ export default function FriendPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 20,
+    backgroundColor: '#F1F5F9', // light gray background
+    paddingHorizontal: '5%',
     paddingTop: 40,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 20,
   },
   menuButton: {
-    marginRight: 15,
+    marginRight: 12,
     padding: 10,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E2E8F0', // lighter button background
     borderRadius: 10,
   },
   menuText: {
     fontSize: 24,
-    color: '#F8FAFC',
+    color: '#1E293B', // dark text for contrast
   },
   header: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: '#1E293B',
   },
   searchInput: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E2E8F0',
     padding: 12,
     borderRadius: 12,
-    color: '#F8FAFC',
-    marginBottom: 20,
+    color: '#1E293B',
+    marginBottom: 16,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
   avatar: {
     width: 48,
@@ -249,7 +269,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#F8FAFC',
+    color: '#1E293B',
     marginRight: 8,
   },
   dot: {
@@ -259,25 +279,19 @@ const styles = StyleSheet.create({
   },
   details: {
     fontSize: 14,
-    color: '#CBD5E1',
+    color: '#475569',
   },
   time: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748B',
   },
   addFriendButton: {
-    marginTop: 10,
-    backgroundColor: '#2563EB',
+    marginTop: 550, // changed from 550 to relative spacing
+    backgroundColor: '#3B82F6', // blue
     paddingVertical: 12,
-    paddingHorizontal: 20,
     borderRadius: 50,
     alignItems: 'center',
     alignSelf: 'center',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 6,
   },
   addFriendText: {
     color: '#FFFFFF',
@@ -286,16 +300,11 @@ const styles = StyleSheet.create({
   },
   emergencyBtn: {
     marginTop: 20,
-    backgroundColor: '#DC2626',
+    backgroundColor: '#EF4444',
     paddingVertical: 15,
-    paddingHorizontal: 20,
     borderRadius: 14,
     alignItems: 'center',
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 6,
+    alignSelf: 'center',
   },
   emergencyText: {
     color: '#FFFFFF',
@@ -304,7 +313,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -314,7 +323,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 25,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 10,
   },
@@ -322,11 +331,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     marginBottom: 20,
-    color: '#0F172A',
+    color: '#1E293B',
   },
   modalItem: {
     paddingVertical: 14,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#CBD5E1',
     borderBottomWidth: 1,
   },
   modalText: {
@@ -338,13 +347,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCloseText: {
-    color: '#DC2626',
+    color: '#EF4444',
     fontSize: 16,
     fontWeight: 'bold',
   },
   addButton: {
-    backgroundColor: '#10B981',
-    paddingVertical: 12,
+    backgroundColor: '#10B981', // green
+    paddingVertical: 550,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 20,

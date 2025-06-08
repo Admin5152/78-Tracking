@@ -8,10 +8,13 @@ import {
   SafeAreaView,
   Alert,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { account } from '../lib/appwriteConfig'; // ✅ Adjust this path if needed
+import { account } from '../lib/appwriteConfig'; // ✅ Adjust if needed
 
 export default function LoginPage({ navigation }) {
+  //const [name , setName] = useState('');//
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -21,37 +24,34 @@ export default function LoginPage({ navigation }) {
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 800,
+      duration: 600,
       useNativeDriver: true,
     }).start();
-  }, [fadeAnim]);
+  }, []);
 
   const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert('Error', 'Please enter email and password.');
-    return;
-  }
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password.');
+      return;
+    }
 
-  try {
-    // 🔁 Log out current session if one exists
-    await account.deleteSession('current');
-  } catch (e) {
-    // It's okay if no session was active
-    console.log('No existing session to delete.');
-  }
+    try {
+      await account.deleteSession('current');
+    } catch (e) {
+      console.log('No session to delete');
+    }
 
-  try {
-    // 🔐 Proceed with login
-    await account.createEmailSession(email, password);
-    Alert.alert('Login Successful!');
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Home' }], // Update with your actual home screen
-    });
-  } catch (error) {
-    Alert.alert('Login Error', error.message);
-  }
-};
+    try {
+      await account.createEmailSession(email, password);
+      Alert.alert('Login Successful!');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'FamilyIntroPage' }],
+      });
+    } catch (error) {
+      Alert.alert('Login Error', error.message);
+    }
+  };
 
   const onPressIn = () => {
     Animated.spring(scaleAnim, {
@@ -70,97 +70,116 @@ export default function LoginPage({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Animated.View style={{ opacity: fadeAnim, flex: 1, justifyContent: 'center' }}>
-        <Text style={styles.header}>Login</Text>
+    <SafeAreaView style={styles.wrapper}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+          <Text style={styles.title}>Welcome Back</Text>
+          <Text style={styles.subtitle}>Sign in to continue</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#94A3B8"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#94A3B8"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#94A3B8"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#94A3B8"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={handleLogin}
-            activeOpacity={0.8}
-            onPressIn={onPressIn}
-            onPressOut={onPressOut}
-          >
-            <Text style={styles.loginButtonText}>Sign In</Text>
+          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={handleLogin}
+              onPressIn={onPressIn}
+              onPressOut={onPressOut}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.loginButtonText}>Sign In</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <TouchableOpacity onPress={() => navigation.navigate('SignupPage')}>
+            <Text style={styles.signupText}>
+              Don't have an account?{' '}
+              <Text style={styles.signupLink}>Sign Up</Text>
+            </Text>
           </TouchableOpacity>
         </Animated.View>
-
-        <TouchableOpacity onPress={() => navigation.navigate('SignupPage')}>
-          <Text style={styles.signupText}>Don't have an account? Sign Up</Text>
-        </TouchableOpacity>
-      </Animated.View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  header: {
-    fontSize: 32,
+  title: {
+    fontSize: 36,
     fontWeight: 'bold',
-    color: '#F8FAFC',
+    color: '#0F172A',
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 30,
   },
   input: {
-    backgroundColor: '#1E293B',
-    color: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
+    color: '#0F172A',
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingHorizontal: 18,
+    borderRadius: 12,
     fontSize: 16,
-    marginBottom: 20,
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 5,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   loginButton: {
     backgroundColor: '#38BDF8',
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#0ea5e9',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.7,
-    shadowRadius: 8,
-    elevation: 10,
+    elevation: 4,
   },
   loginButtonText: {
-    color: '#0F172A',
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
   },
   signupText: {
-    color: '#CBD5E1',
+    color: '#475569',
     fontSize: 14,
     textAlign: 'center',
   },
+  signupLink: {
+    color: '#0F172A',
+    fontWeight: 'bold',
+  },
 });
+
+//scam5152@gmail.com//
+//Scam5152//

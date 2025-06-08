@@ -1,33 +1,54 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 
 export default function LandingPage({ navigation }) {
   useEffect(() => {
-    // Wait 2 seconds, then navigate to Login
     const timer = setTimeout(() => {
-      navigation.navigate('Login'); // Make sure 'Login' matches your login screen name
-    }, 2000);
+      navigation.navigate('Login');
+    }, 3000);
 
-    return () => clearTimeout(timer); // Cleanup timer if component unmounts early
+    return () => clearTimeout(timer);
   }, [navigation]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>78 tracking</Text>
+    <View style={styles.wrapper}>
+      <View style={styles.content}>
+        <Text style={styles.logoText}>
+          <FontAwesome5 name="map-marker-alt" size={48} color="#1E293B" /> Tracker 78
+        </Text>
+        <Text style={styles.subtitle}>Share your location with the people you love.</Text>
+        <ActivityIndicator size="large" color="#1E293B" style={styles.loader} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
-    backgroundColor: '#0F172A',  // Dark background, customize if you want
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  text: {
-    fontSize: 48,
+  content: {
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  logoText: {
+    fontSize: 40,
     fontWeight: 'bold',
-    color: '#38BDF8',  // A nice blue color for the text
+    color: '#1E293B', // Dark blue
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 18,
+    color: '#475569', // Slate gray
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  loader: {
+    marginTop: 10,
   },
 });

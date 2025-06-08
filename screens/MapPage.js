@@ -8,10 +8,14 @@ import {
   TouchableOpacity,
   Modal,
   SafeAreaView,
-  Pressable
+  Pressable,
+  Dimensions,
+  Platform
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+
+const { width, height } = Dimensions.get('window');
 
 export default function MapPage({ navigation }) {
   const [location, setLocation] = useState(null);
@@ -43,7 +47,7 @@ export default function MapPage({ navigation }) {
 
     return () => {
       if (subscription) {
-        subscription.remove(); // Clean up when unmounted
+        subscription.remove();
       }
     };
   }, []);
@@ -75,8 +79,8 @@ export default function MapPage({ navigation }) {
   if (loading || !location) {
     return (
       <SafeAreaView style={styles.loader}>
-        <ActivityIndicator size="large" color="#38bdf8" />
-        <Text style={{ color: '#fff', marginTop: 10 }}>Fetching your live location...</Text>
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={styles.loaderText}>Fetching your live location...</Text>
       </SafeAreaView>
     );
   }
@@ -91,7 +95,7 @@ export default function MapPage({ navigation }) {
         <Text style={styles.header}>Map View</Text>
       </View>
 
-      {/* Map */}
+     {/* Map */}
       <MapView
         style={{ flex: 1 }}
         region={{
@@ -147,64 +151,54 @@ export default function MapPage({ navigation }) {
 }
 
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 20,
-    paddingTop: 40,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: width * 0.05,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+  },
+  loader: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loaderText: {
+    color: '#1E293B',
+    fontSize: 16,
+    marginTop: 10,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 20,
   },
   menuButton: {
     marginRight: 15,
     padding: 10,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E2E8F0',
     borderRadius: 10,
   },
   menuText: {
     fontSize: 24,
-    color: '#F8FAFC',
+    color: '#0F172A',
   },
   header: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#F8FAFC',
-  },
-  contentBox: {
-    backgroundColor: '#1E293B',
-    padding: 25,
-    borderRadius: 16,
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  welcomeText: {
-    color: '#38BDF8',
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  contentText: {
-    color: '#CBD5E1',
-    fontSize: 16,
-    lineHeight: 22,
+    color: '#0F172A',
   },
   emergencyBtn: {
-    marginTop: 50,
-    backgroundColor: '#DC2626',
+    position: 'absolute',
+    bottom: height * 0.05,
+    left: width * 0.1,
+    right: width * 0.1,
+    backgroundColor: '#EF4444',
     paddingVertical: 15,
-    paddingHorizontal: 20,
     borderRadius: 14,
     alignItems: 'center',
-    shadowColor: '#DC2626',
+    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 6,

@@ -8,12 +8,14 @@ import {
   SafeAreaView,
   Alert,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-
-import { account } from '../lib/appwriteConfig'; // Adjust the path as needed
-import { ID } from 'appwrite'; // ✅ Correct
+import { account } from '../lib/appwriteConfig';
+import { ID } from 'appwrite';
 
 export default function SignupPage({ navigation }) {
+ // const [name , setName] = useState('');//
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -24,10 +26,10 @@ export default function SignupPage({ navigation }) {
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 800,
+      duration: 600,
       useNativeDriver: true,
     }).start();
-  }, [fadeAnim]);
+  }, []);
 
   const onPressIn = () => {
     Animated.spring(scaleAnim, {
@@ -58,113 +60,141 @@ export default function SignupPage({ navigation }) {
     try {
       await account.create(ID.unique(), email, password);
       Alert.alert('Success', 'Account created successfully!');
-      navigation.navigate('Login'); // Make sure "Login" is the correct screen name in your navigator
+      navigation.navigate('FamilyIntroPage');
     } catch (error) {
       Alert.alert('Signup Error', error.message);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Animated.View style={{ opacity: fadeAnim, flex: 1, justifyContent: 'center' }}>
-        <Text style={styles.header}>Sign Up</Text>
+    <SafeAreaView style={styles.wrapper}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Join us and explore more</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#94A3B8"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+          {/* <TextInput
+            style={styles.input}
+            placeholder="Name"
+            placeholderTextColor="#94A3B8"
+            value={email}
+            onChangeText={setName}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          /> */}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#94A3B8"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          placeholderTextColor="#94A3B8"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#94A3B8"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
 
-        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-          <TouchableOpacity
-            style={styles.signupButton}
-            onPress={handleSignup}
-            activeOpacity={0.8}
-            onPressIn={onPressIn}
-            onPressOut={onPressOut}
-          >
-            <Text style={styles.signupButtonText}>Create Account</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#94A3B8"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm Password"
+            placeholderTextColor="#94A3B8"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+
+          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+            <TouchableOpacity
+              style={styles.signupButton}
+              onPress={handleSignup}
+              activeOpacity={0.8}
+              onPressIn={onPressIn}
+              onPressOut={onPressOut}
+            >
+              <Text style={styles.signupButtonText}>Sign Up</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.loginText}>
+              Already have an account?{' '}
+              <Text style={styles.loginLink}>Log In</Text>
+            </Text>
           </TouchableOpacity>
         </Animated.View>
-
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.loginRedirectText}>Already have an account? Log In</Text>
-        </TouchableOpacity>
-      </Animated.View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  header: {
+  title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#F8FAFC',
+    color: '#0F172A',
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 30,
   },
   input: {
-    backgroundColor: '#1E293B',
-    color: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
+    color: '#0F172A',
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingHorizontal: 18,
+    borderRadius: 12,
     fontSize: 16,
-    marginBottom: 20,
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 5,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   signupButton: {
     backgroundColor: '#38BDF8',
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#0ea5e9',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.7,
-    shadowRadius: 8,
-    elevation: 10,
+    elevation: 4,
   },
   signupButtonText: {
-    color: '#0F172A',
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  loginRedirectText: {
-    color: '#CBD5E1',
+  loginText: {
+    color: '#475569',
     fontSize: 14,
     textAlign: 'center',
+  },
+  loginLink: {
+    color: '#0F172A',
+    fontWeight: 'bold',
   },
 });

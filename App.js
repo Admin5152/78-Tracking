@@ -9,6 +9,7 @@ import SettingsPage from './screens/SettingsPage';
 import LoginPage from './screens/LoginPage';
 import SignupPage from './screens/SignupPage'; // Import SignupPage if needed
 import LandingPage from './screens/LandingPage'; 
+import FamilyIntroPage from './screens/FamilyIntroPage';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
       <Stack.Navigator initialRouteName="LandingPage" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginPage} options={{ headerShown: false }} />
         <Stack.Screen name="SignupPage" component={SignupPage} options={{ headerShown: false }} />
+        <Stack.Screen name="FamilyIntroPage" component={FamilyIntroPage} options={{ headerShown: false }} />
         <Stack.Screen name="LandingPage" component={LandingPage} options={{ headerShown: false }} />
         {/* Login screen should be the first screen shown */}
 
