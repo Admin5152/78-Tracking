@@ -10,6 +10,7 @@ import LoginPage from './screens/LoginPage';
 import SignupPage from './screens/SignupPage'; // Import SignupPage if needed
 import LandingPage from './screens/LandingPage'; 
 import FamilyIntroPage from './screens/FamilyIntroPage';
+import SafetyPage from './screens/SafetyPage'; // Adjust the import path if necessary
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -21,6 +22,8 @@ export default function App() {
         <Stack.Screen name="FamilyIntroPage" component={FamilyIntroPage} options={{ headerShown: false }} />
         <Stack.Screen name="LandingPage" component={LandingPage} options={{ headerShown: false }} />
         {/* Login screen should be the first screen shown */}
+        <Stack.Screen name="SafetyPage" component={SafetyPage} options={{ headerShown: false }} />
+        {/* SafetyPage can be added later if needed */}
 
 
         <Stack.Screen name="Home" component={HomePage} options={{ headerShown: false }} />

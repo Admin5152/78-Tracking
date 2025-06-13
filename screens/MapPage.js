@@ -10,7 +10,8 @@ import {
   SafeAreaView,
   Pressable,
   Dimensions,
-  Platform
+  Platform,
+  StatusBar
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -79,49 +80,94 @@ export default function MapPage({ navigation }) {
   if (loading || !location) {
     return (
       <SafeAreaView style={styles.loader}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loaderText}>Fetching your live location...</Text>
+        <StatusBar barStyle="dark-content" backgroundColor="#F1F5F9" />
+        <View style={styles.loaderContent}>
+          <View style={styles.loaderIconContainer}>
+            <ActivityIndicator size="large" color="#2563eb" />
+          </View>
+          <Text style={styles.loaderText}>Fetching your live location...</Text>
+          <Text style={styles.loaderSubtext}>Please wait while we locate you</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      <StatusBar barStyle="dark-content" backgroundColor="#F1F5F9" />
+      
+      {/* Header with gradient background */}
       <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.menuButton} onPress={() => setModalVisible(true)}>
-          <Text style={styles.menuText}>☰</Text>
-        </TouchableOpacity>
-        <Text style={styles.header}>Map View</Text>
+        <View style={styles.headerContent}>
+          <TouchableOpacity style={styles.menuButton} onPress={() => setModalVisible(true)}>
+            <Text style={styles.menuText}>☰</Text>
+          </TouchableOpacity>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.header}>Map View</Text>
+            <Text style={styles.headerSubtext}>Your current location</Text>
+          </View>
+        </View>
       </View>
 
-     {/* Map */}
-      <MapView
-        style={{ flex: 1 }}
-        region={{
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-        showsUserLocation={true}
-      >
-        <Marker
-          coordinate={{
+      {/* Map Container with rounded corners and shadow */}
+      <View style={styles.mapContainer}>
+        <MapView
+          style={styles.map}
+          region={{
             latitude: location.latitude,
             longitude: location.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
           }}
-          title="You are here"
-          pinColor="blue"
-        />
-      </MapView>
+          showsUserLocation={true}
+          showsMyLocationButton={false}
+          showsCompass={true}
+          showsScale={true}
+        >
+          <Marker
+            coordinate={{
+              latitude: location.latitude,
+              longitude: location.longitude,
+            }}
+            title="You are here"
+            pinColor="blue"
+          />
+        </MapView>
+        
+        {/* Map overlay controls */}
+        <View style={styles.mapControls}>
+          <TouchableOpacity style={styles.controlButton}>
+            <Text style={styles.controlButtonText}>📍</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton}>
+            <Text style={styles.controlButtonText}>🧭</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      {/* Emergency Button */}
+      {/* Location info card */}
+      <View style={styles.locationCard}>
+        <View style={styles.locationCardHeader}>
+          <Text style={styles.locationCardTitle}>Current Location</Text>
+          <View style={styles.liveIndicator}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>LIVE</Text>
+          </View>
+        </View>
+        <Text style={styles.coordinates}>
+          {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+        </Text>
+      </View>
+
+      {/* Emergency Button with enhanced styling */}
       <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
-        <Text style={styles.emergencyText}>🚨 Emergency</Text>
+        <View style={styles.emergencyContent}>
+          <Text style={styles.emergencyIcon}>🚨</Text>
+          <Text style={styles.emergencyText}>Emergency</Text>
+        </View>
       </TouchableOpacity>
 
-      {/* Slide-Up Modal Menu */}
+      {/* Enhanced Slide-Up Modal Menu */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -129,19 +175,39 @@ export default function MapPage({ navigation }) {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setModalVisible(false)} />
           <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Menu</Text>
-            <Pressable style={styles.modalItem} onPress={() => handleMenuPress("Home")}>
-              <Text style={styles.modalText}>🏠 Home</Text>
-            </Pressable>
-            <Pressable style={styles.modalItem} onPress={() => handleMenuPress("FriendPage")}>
-              <Text style={styles.modalText}>👥 Friends</Text>
-            </Pressable>
-            <Pressable style={styles.modalItem} onPress={() => handleMenuPress("Settings")}>
-              <Text style={styles.modalText}>⚙️ Settings</Text>
-            </Pressable>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalHeader}>Navigation Menu</Text>
+            
+            <View style={styles.menuGrid}>
+              <Pressable style={styles.modalItem} onPress={() => handleMenuPress("Home")}>
+                <View style={styles.modalIconContainer}>
+                  <Text style={styles.modalIcon}>🏠</Text>
+                </View>
+                <Text style={styles.modalText}>Home</Text>
+                <Text style={styles.modalSubtext}>Main dashboard</Text>
+              </Pressable>
+              
+              <Pressable style={styles.modalItem} onPress={() => handleMenuPress("FriendPage")}>
+                <View style={styles.modalIconContainer}>
+                  <Text style={styles.modalIcon}>👥</Text>
+                </View>
+                <Text style={styles.modalText}>Friends</Text>
+                <Text style={styles.modalSubtext}>Your network</Text>
+              </Pressable>
+              
+              <Pressable style={styles.modalItem} onPress={() => handleMenuPress("Settings")}>
+                <View style={styles.modalIconContainer}>
+                  <Text style={styles.modalIcon}>⚙️</Text>
+                </View>
+                <Text style={styles.modalText}>Settings</Text>
+                <Text style={styles.modalSubtext}>Preferences</Text>
+              </Pressable>
+            </View>
+            
             <Pressable style={styles.modalClose} onPress={() => setModalVisible(false)}>
-              <Text style={styles.modalCloseText}>Close</Text>
+              <Text style={styles.modalCloseText}>Close Menu</Text>
             </Pressable>
           </View>
         </View>
@@ -150,103 +216,280 @@ export default function MapPage({ navigation }) {
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: width * 0.05,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: '#F8FAFC',
   },
   loader: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  loaderContent: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  loaderIconContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   loaderText: {
     color: '#1E293B',
-    fontSize: 16,
-    marginTop: 10,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  loaderSubtext: {
+    color: '#64748B',
+    fontSize: 14,
   },
   headerContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: width * 0.05,
+    paddingTop: Platform.OS === 'ios' ? 20 : 40,
+    paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
   },
   menuButton: {
     marginRight: 15,
-    padding: 10,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 10,
+    padding: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   menuText: {
-    fontSize: 24,
-    color: '#0F172A',
+    fontSize: 20,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   header: {
     fontSize: 24,
     fontWeight: '700',
     color: '#0F172A',
+    marginBottom: 2,
+  },
+  headerSubtext: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  mapContainer: {
+    flex: 1,
+    margin: width * 0.05,
+    marginTop: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  map: {
+    flex: 1,
+  },
+  mapControls: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    flexDirection: 'column',
+  },
+  controlButton: {
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  controlButtonText: {
+    fontSize: 16,
+  },
+  locationCard: {
+    marginHorizontal: width * 0.05,
+    marginTop: 15,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  locationCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  locationCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    marginRight: 6,
+  },
+  liveText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+  coordinates: {
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   emergencyBtn: {
-    position: 'absolute',
-    bottom: height * 0.05,
-    left: width * 0.1,
-    right: width * 0.1,
+    marginHorizontal: width * 0.05,
+    marginTop: 15,
+    marginBottom: 30,
     backgroundColor: '#EF4444',
-    paddingVertical: 15,
-    borderRadius: 14,
-    alignItems: 'center',
+    paddingVertical: 18,
+    borderRadius: 16,
     shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  emergencyContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emergencyIcon: {
+    fontSize: 20,
+    marginRight: 8,
   },
   emergencyText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontWeight: '700',
     fontSize: 18,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    flex: 1,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+    padding: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 16,
+    maxHeight: height * 0.7,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   modalHeader: {
     fontSize: 22,
     fontWeight: '700',
-    marginBottom: 20,
+    marginBottom: 24,
     color: '#0F172A',
+    textAlign: 'center',
+  },
+  menuGrid: {
+    marginBottom: 24,
   },
   modalItem: {
-    paddingVertical: 14,
-    borderBottomColor: '#E2E8F0',
-    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F8FAFC',
+  },
+  modalIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  modalIcon: {
+    fontSize: 20,
   },
   modalText: {
     fontSize: 18,
+    fontWeight: '600',
     color: '#1E293B',
+    flex: 1,
+  },
+  modalSubtext: {
+    fontSize: 12,
+    color: '#64748B',
+    position: 'absolute',
+    bottom: 16,
+    left: 76,
   },
   modalClose: {
-    marginTop: 25,
     alignItems: 'center',
+    paddingVertical: 16,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
   },
   modalCloseText: {
     color: '#DC2626',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
 });
