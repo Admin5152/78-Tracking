@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -50,29 +50,40 @@ export default function LoginPage({ navigation }) {
     ]).start();
   }, []);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password.');
+const handleLogin = async () => {
+  if (!email || !password) {
+    Alert.alert('Error', 'Please enter email and password.');
+    return;
+  }
+
+  try {
+    const response = await fetch('https://fra.cloud.appwrite.io/v1/account/sessions/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Appwrite-Project': '683f5658000ba43c36cd',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      Alert.alert('Login Failed', data.message || 'Check your credentials');
       return;
     }
 
-    try {
-      await account.deleteSession('current');
-    } catch (e) {
-      console.log('No session to delete');
-    }
+    Alert.alert('Login Successful');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'FamilyIntroPage' }],
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    Alert.alert('Error', 'Something went wrong. Please try again.');
+  }
+};
 
-    try {
-      await account.createEmailSession(email, password);
-      Alert.alert('Login Successful!');
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'FamilyIntroPage' }],
-      });
-    } catch (error) {
-      Alert.alert('Login Error', error.message);
-    }
-  };
 
   const onPressIn = () => {
     Animated.spring(scaleAnim, {
