@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert, Dimensions, Platform 
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert, Dimensions, Platform, 
+  Settings
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { account } from '../lib/appwriteConfig';
@@ -217,12 +218,16 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: '#b91c1c',
+    paddingHorizontal: width * 0.1,
+    marginHorizontal: width * 0.05,
   },
   logoutButtonText: {
     color: '#ffffff',
     fontWeight: 'bold',
     fontSize: width * 0.05,
     letterSpacing: 0.5,
+    paddingHorizontal: width * 0.1,
+    textAlign: 'center',
   },
   errorContainer: {
     flex: 1,
@@ -247,3 +252,11 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
   },
 });
+
+
+
+
+// more Settings:
+// about
+//chat support
+// edit account make bigg

@@ -47,24 +47,48 @@ export default function SignupPage({ navigation }) {
     }).start();
   };
 
-  const handleSignup = async () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+const handleSignup = async () => {
+  if (!email || !password || !confirmPassword) {
+    Alert.alert('Error', 'Please fill in all fields.');
+    return;
+  }
+  if (password !== confirmPassword) {
+    Alert.alert('Error', 'Passwords do not match.');
+    return;
+  }
+
+  try {
+    const response = await fetch('https://fra.cloud.appwrite.io/v1/account', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Appwrite-Project': '683f5658000ba43c36cd', // your project ID
+      },
+      body: JSON.stringify({
+        userId: 'unique()', // auto ID generator — Appwrite understands this string
+        email: email,
+        password: password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      Alert.alert('Signup Failed', data.message || 'Something went wrong.');
       return;
     }
 
-    try {
-      await account.create(ID.unique(), email, password);
-      Alert.alert('Success', 'Account created successfully!');
-      navigation.navigate('FamilyIntroPage');
-    } catch (error) {
-      Alert.alert('Signup Error', error.message);
-    }
-  };
+    Alert.alert('Success', 'Account created successfully!');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'FamilyIntroPage' }],
+    });
+  } catch (error) {
+    console.error('Signup error:', error);
+    Alert.alert('Error', 'Something went wrong. Please try again.');
+  }
+};
+
 
   return (
     <SafeAreaView style={styles.wrapper}>
@@ -198,3 +222,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+// fix bugging error 
