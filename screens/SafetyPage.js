@@ -283,7 +283,7 @@ export default function SafetyPage() {
           </View>
         </View>
 
-        {/* Quick Actions */}
+        {/* Quick Actions
         <View style={styles.quickActionsSection}>
           <Text style={styles.sectionTitle}>Quick Emergency Actions</Text>
           <View style={styles.actionGrid}>
@@ -331,7 +331,7 @@ export default function SafetyPage() {
               <Text style={styles.actionSubtitle}>Family & friends</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </View> */}
 
         {/* Safety Tips */}
         <View style={styles.tipsSection}>
