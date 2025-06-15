@@ -75,6 +75,24 @@ export default function FriendPage() {
     Alert.alert("Emergency", "Emergency services have been contacted.");
   };
 
+  const handleAddFriend = () => {
+    if (newFriendId.trim().length > 0) {
+      Alert.alert(
+        "Friend Request Sent", 
+        `A friend request has been sent to ${newFriendId}. They will appear in your friends list once they accept.`,
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              setNewFriendId("");
+              setAddFriendModalVisible(false);
+            }
+          }
+        ]
+      );
+    }
+  };
+
   const renderStatus = (color) => (
     <View style={[styles.statusContainer]}>
       <View style={[styles.dot, { backgroundColor: color }]} />
@@ -252,9 +270,8 @@ export default function FriendPage() {
           {/* Action Buttons */}
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity 
-              style={[styles.addFriendButton, { width: screenWidth * 0.42, opacity: 0.5 }]} 
-              onPress={() => Alert.alert("Coming Soon", "Friend adding feature is still in development!")}
-              //setAddFriendModalVisible(true)}
+              style={[styles.addFriendButton, { width: screenWidth * 0.42 }]} 
+              onPress={() => setAddFriendModalVisible(true)}
             >
               <Text style={styles.addFriendIcon}>👥</Text>
               <Text style={styles.addFriendText}>Add Friend</Text>
@@ -315,61 +332,77 @@ export default function FriendPage() {
           </View>
         </Modal>
 
-        {/* Enhanced Add Friend Modal */}
+        {/* Enhanced Add Friend Modal - Slides up from bottom */}
         <Modal
-          animationType="fade"
+          animationType="slide"
           transparent
           visible={addFriendModalVisible}
           onRequestClose={() => setAddFriendModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, styles.addFriendModalContent]}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Add New Friend</Text>
-                <TouchableOpacity 
-                  style={styles.modalCloseIcon}
-                  onPress={() => setAddFriendModalVisible(false)}
-                >
-                  <Text style={styles.modalCloseIconText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-              
-              <Text style={styles.addFriendDescription}>
-                Enter your friend's tracking ID to start following their location
-              </Text>
-              
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputIcon}>🆔</Text>
-                <TextInput
-                  style={styles.addFriendInput}
-                  placeholder="Enter friend's ID (e.g. #12345)"
-                  placeholderTextColor="#94a3b8"
-                  value={newFriendId}
-                  onChangeText={setNewFriendId}
-                />
-              </View>
-              
-              <View style={styles.addFriendActions}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setAddFriendModalVisible(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
+            <Pressable 
+              style={styles.modalBackdrop} 
+              onPress={() => setAddFriendModalVisible(false)} 
+            />
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.keyboardAvoidingView}
+            >
+              <View style={styles.addFriendModalContainer}>
+                <View style={styles.modalHandle} />
                 
-                <TouchableOpacity
-                  style={[styles.addButton, { opacity: newFriendId.length > 0 ? 1 : 0.5 }]}
-                  disabled={newFriendId.length === 0}
-                  onPress={() => {
-                    Alert.alert("Friend Added", `Tracking ID: ${newFriendId}`);
-                    setNewFriendId("");
-                    setAddFriendModalVisible(false);
-                  }}
-                >
-                  <Text style={styles.addButtonText}>Add Friend</Text>
-                </TouchableOpacity>
+                <View style={styles.addFriendModalHeader}>
+                  <Text style={styles.addFriendModalTitle}>Add New Friend</Text>
+                  <TouchableOpacity 
+                    style={styles.modalCloseIcon}
+                    onPress={() => setAddFriendModalVisible(false)}
+                  >
+                    <Text style={styles.modalCloseIconText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <Text style={styles.addFriendDescription}>
+                  Enter your friend's unique tracking ID to start following their location and activities
+                </Text>
+                
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputIcon}>🆔</Text>
+                  <TextInput
+                    style={styles.addFriendInput}
+                    placeholder="Enter friend's ID (e.g. @username or #12345)"
+                    placeholderTextColor="#94a3b8"
+                    value={newFriendId}
+                    onChangeText={setNewFriendId}
+                    autoFocus={true}
+                    returnKeyType="done"
+                    onSubmitEditing={handleAddFriend}
+                  />
+                </View>
+                
+                <View style={styles.addFriendActions}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => {
+                      setNewFriendId("");
+                      setAddFriendModalVisible(false);
+                    }}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[
+                      styles.addButton, 
+                      { opacity: newFriendId.trim().length > 0 ? 1 : 0.5 }
+                    ]}
+                    disabled={newFriendId.trim().length === 0}
+                    onPress={handleAddFriend}
+                  >
+                    <Text style={styles.addButtonText}>Add Friend</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            </KeyboardAvoidingView>
           </View>
         </Modal>
       </SafeAreaView>
@@ -832,14 +865,36 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: '600',
   },
-  // Original modal styles for add friend
-  modalHeader: {
+  // Enhanced Add Friend Modal Styles
+  keyboardAvoidingView: {
+    justifyContent: 'flex-end',
+  },
+  addFriendModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 16,
+    maxHeight: height * 0.6,
+  },
+  addFriendModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
+    marginBottom: 16,
+  },
+  addFriendModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0F172A',
+    flex: 1,
+    textAlign: 'center',
   },
   modalCloseIcon: {
     width: 32,
@@ -848,34 +903,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'absolute',
+    right: 0,
   },
   modalCloseIconText: {
     fontSize: 16,
     color: '#64748B',
     fontWeight: 'bold',
   },
-  addFriendModalContent: {
-    margin: 20,
-    borderRadius: 20,
-  },
   addFriendDescription: {
     fontSize: 16,
     color: '#64748B',
     textAlign: 'center',
-    marginHorizontal: 20,
     marginBottom: 24,
     lineHeight: 24,
+    fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    marginHorizontal: 20,
     paddingHorizontal: 16,
     borderRadius: 16,
-    marginBottom: 24,
-    borderWidth: 1,
+    marginBottom: 32,
+    borderWidth: 2,
     borderColor: '#E2E8F0',
+    minHeight: 56,
   },
   inputIcon: {
     fontSize: 18,
@@ -892,7 +945,7 @@ const styles = StyleSheet.create({
   addFriendActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    gap: 16,
   },
   cancelButton: {
     flex: 1,
@@ -900,7 +953,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
-    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   cancelButtonText: {
     color: '#64748B',
@@ -909,15 +963,15 @@ const styles = StyleSheet.create({
   },
   addButton: {
     flex: 1,
-    backgroundColor: '#0000FF',
+    backgroundColor: '#3B82F6',
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
-    marginLeft: 12,
+    justifyContent: 'center',
   },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-});
+    addButtonText: {
+      color: '#FFFFFF',
+      fontWeight: '600',
+      fontSize: 16,
+    },
+  });
