@@ -17,11 +17,11 @@ import { account } from '../lib/appwriteConfig'; // ✅ Adjust if needed
 const { width, height } = Dimensions.get('window');
 
 export default function LoginPage({ navigation }) {
-  //const [name , setName] = useState('');//
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -48,42 +48,69 @@ export default function LoginPage({ navigation }) {
         }),
       ]),
     ]).start();
+
+    // Check and clear any existing sessions on component mount
+    checkAndClearSessions();
   }, []);
 
-const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert('Error', 'Please enter email and password.');
-    return;
-  }
+  const checkAndClearSessions = async () => {
+    try {
+      // Try to get current session
+      const session = await account.getSession('current');
+      if (session) {
+        console.log('Found existing session, clearing...');
+        await account.deleteSessions();
+        console.log('All sessions cleared');
+      }
+    } catch (error) {
+      // No active session or error getting session - this is fine
+      console.log('No active session found or error:', error.message);
+    }
+  };
 
-  try {
-    const response = await fetch('https://fra.cloud.appwrite.io/v1/account/sessions/email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Appwrite-Project': '683f5658000ba43c36cd',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      Alert.alert('Login Failed', data.message || 'Check your credentials');
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password.');
       return;
     }
 
-    Alert.alert('Login Successful');
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'FamilyIntroPage' }],
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    Alert.alert('Error', 'Something went wrong. Please try again.');
-  }
-};
+    setIsLoading(true);
 
+    try {
+      // First, ensure no active sessions
+      await account.deleteSessions().catch(() => {
+        // Ignore errors if no sessions exist
+      });
+
+      // Create new session using Appwrite SDK
+      const session = await account.createEmailPasswordSession(email, password);
+      
+      console.log('Login successful:', session);
+      Alert.alert('Login Successful', 'Welcome back!');
+      
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'FamilyIntroPage' }],
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      let errorMessage = 'Something went wrong. Please try again.';
+      
+      // Handle specific Appwrite errors
+      if (error.code === 401) {
+        errorMessage = 'Invalid email or password. Please check your credentials.';
+      } else if (error.code === 429) {
+        errorMessage = 'Too many login attempts. Please try again later.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Login Failed', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const onPressIn = () => {
     Animated.spring(scaleAnim, {
@@ -155,6 +182,7 @@ const handleLogin = async () => {
                 autoCorrect={false}
                 onFocus={() => setEmailFocused(true)}
                 onBlur={() => setEmailFocused(false)}
+                editable={!isLoading}
               />
             </View>
 
@@ -173,19 +201,23 @@ const handleLogin = async () => {
                 secureTextEntry
                 onFocus={() => setPasswordFocused(true)}
                 onBlur={() => setPasswordFocused(false)}
+                editable={!isLoading}
               />
             </View>
 
             <Animated.View style={[styles.buttonContainer, { transform: [{ scale: scaleAnim }] }]}>
               <TouchableOpacity
-                style={styles.loginButton}
+                style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
                 onPress={handleLogin}
                 onPressIn={onPressIn}
                 onPressOut={onPressOut}
                 activeOpacity={0.8}
+                disabled={isLoading}
               >
                 <View style={styles.buttonContent}>
-                  <Text style={styles.loginButtonText}>Sign In</Text>
+                  <Text style={styles.loginButtonText}>
+                    {isLoading ? 'Signing In' : 'Sign In'}
+                  </Text>
                   <Text style={styles.buttonIcon}>→</Text>
                 </View>
               </TouchableOpacity>
@@ -200,6 +232,7 @@ const handleLogin = async () => {
             <TouchableOpacity 
               style={styles.signupContainer}
               onPress={() => navigation.navigate('SignupPage')}
+              disabled={isLoading}
             >
               <Text style={styles.signupText}>
                 Don't have an account?{' '}
@@ -354,6 +387,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     position: 'relative',
     overflow: 'hidden',
+  },
+  loginButtonDisabled: {
+    backgroundColor: '#94A3B8',
+    shadowOpacity: 0.1,
   },
   buttonContent: {
     flexDirection: 'row',

@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 
 export default function LandingPage({ navigation }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       navigation.navigate('Login');
-    }, 3000);
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, [navigation]);
@@ -14,9 +13,9 @@ export default function LandingPage({ navigation }) {
   return (
     <View style={styles.wrapper}>
       <View style={styles.content}>
-        <Text style={styles.logoText}>
-          <FontAwesome5 name="map-marker-alt" size={48} color="#1E293B" /> Tracker 78
-        </Text>
+        <View style={styles.logoContainer}>
+          <Image source={require('../assets/Tracker_78_logo.png')} style={styles.logoImage} />
+        </View>
         <Text style={styles.subtitle}>Share your location with the people you love.</Text>
         <ActivityIndicator size="large" color="#1E293B" style={styles.loader} />
       </View>
@@ -35,16 +34,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 30,
   },
-  logoText: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: '#1E293B', // Dark blue
+  logoContainer: {
+    alignItems: 'center',
     marginBottom: 20,
-    textAlign: 'center',
+  },
+  logoImage: {
+    width: 300,
+    height: 300,
+    borderRadius: 50,
   },
   subtitle: {
     fontSize: 18,
-    color: '#475569', // Slate gray
+    color: '#475569',
     textAlign: 'center',
     marginBottom: 30,
   },
