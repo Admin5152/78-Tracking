@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { 
   View, 
   Text,
@@ -10,7 +10,10 @@ import {
   Dimensions,
   Platform,
   Pressable,
-  ScrollView
+  ScrollView,
+  RefreshControl,
+  Animated,
+  Easing
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -18,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Linking } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,228 +33,437 @@ const hp = (percentage) => (height * percentage) / 100;
 const isTablet = width >= 768;
 const isSmallScreen = width < 375;
 
+// Constants
+const LOCATION_TIMEOUT = 10000; // 10 seconds
+const TIME_UPDATE_INTERVAL = 30000; // 30 seconds (more reasonable than 1 minute)
+
 const HomePage = () => {
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
+  const [currentDate, setCurrentDate] = useState('');
+  const [locationName, setLocationName] = useState('Current Location');
+  const [weatherData, setWeatherData] = useState({ temp: '25°C', condition: 'Sunny' });
+  const [locationError, setLocationError] = useState(false);
+  
+  // Animation values
+  const fadeAnim = useMemo(() => new Animated.Value(0), []);
+  const slideAnim = useMemo(() => new Animated.Value(-20), []);
 
-  useEffect(() => {
-    // Update time every minute
-    const updateTime = () => {
-      const now = new Date();
-      const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setCurrentTime(timeString);
-    };
-
-    updateTime();
-    const timeInterval = setInterval(updateTime, 60000);
-
-    // Get location
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.error('Permission to access location was denied');
-        setLoading(false);
-        return;
-      }
-
-      let location = await Location.getCurrentPositionAsync({});
-      setLocation(location.coords);
-      setLoading(false);
-    })();
-
-    return () => clearInterval(timeInterval);
-  }, []);
-
-  const handleEmergency = () => {
-    Alert.alert("Emergency", "Emergency services have been contacted!");
-  };
-
-  const getGreeting = () => {
+  // Memoized greeting to prevent unnecessary re-renders
+  const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning!";
     if (hour < 18) return "Good Afternoon!";
     return "Good Evening!";
-  };
+  }, []);
 
-  const handleMenuPress = (screen) => {
+  // Update time and date
+  const updateDateTime = useCallback(() => {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    const dateString = now.toLocaleDateString([], { 
+      weekday: 'long', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+    setCurrentTime(timeString);
+    setCurrentDate(dateString);
+  }, []);
+
+  // Get location with better error handling
+  const getLocation = useCallback(async () => {
+    try {
+      setLocationError(false);
+      
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError(true);
+        setLocationName('Location permission denied');
+        return;
+      }
+
+      const locationData = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        timeout: LOCATION_TIMEOUT,
+      });
+
+      const { latitude, longitude } = locationData.coords;
+      setLocation(locationData.coords);
+      
+      // Reverse geocode with timeout
+      const geocodePromise = Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Geocoding timeout')), 5000)
+      );
+
+      try {
+        const geocode = await Promise.race([geocodePromise, timeoutPromise]);
+        
+        if (geocode.length > 0) {
+          const { city, region, country } = geocode[0];
+          if (city && region) {
+            setLocationName(`${city}, ${region}`);
+          } else if (city) {
+            setLocationName(city);
+          } else if (region) {
+            setLocationName(region);
+          } else if (country) {
+            setLocationName(country);
+          }
+        }
+      } catch (geocodeError) {
+        console.log('Geocoding failed:', geocodeError);
+        setLocationName('Location found');
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      setLocationError(true);
+      setLocationName('Location unavailable');
+    }
+  }, []);
+
+  // Initialize component
+  useEffect(() => {
+    const initializeApp = async () => {
+      updateDateTime();
+      await getLocation();
+      setLoading(false);
+      
+      // Animate in
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 800,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    initializeApp();
+
+    const timeInterval = setInterval(updateDateTime, TIME_UPDATE_INTERVAL);
+    return () => clearInterval(timeInterval);
+  }, [updateDateTime, getLocation, fadeAnim, slideAnim]);
+
+  // Pull to refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    updateDateTime();
+    await getLocation();
+    setRefreshing(false);
+  }, [updateDateTime, getLocation]);
+
+  // Enhanced emergency handler
+  const handleEmergency = useCallback(() => {
+    Alert.alert(
+      "Emergency Alert", 
+      "Are you sure you want to contact emergency services?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Yes, Call Now", 
+          style: "destructive",
+          onPress: () => {
+            // In a real app, this would make an actual emergency call
+            Linking.openURL('tel:0531771042');
+            Alert.alert("Emergency", "Emergency services have been contacted!");
+          }
+        }
+      ]
+    );
+  }, []);
+
+  // Menu handler with haptic feedback
+  const handleMenuPress = useCallback((screen) => {
     setModalVisible(false);
-    navigation.navigate(screen);
-  };
+    // Add slight delay for modal animation
+    setTimeout(() => {
+      navigation.navigate(screen);
+    }, 200);
+  }, [navigation]);
+
+  // Quick actions data
+  const quickActions = useMemo(() => [
+    {
+      id: 'map',
+      icon: 'map-outline',
+      color: '#0EA5E9',
+      text: 'Map View',
+      screen: 'MapPage',
+      accessibilityLabel: 'Open map view'
+    },
+    {
+      id: 'friends',
+      icon: 'people-outline',
+      color: '#8B5CF6',
+      text: 'Friends',
+      screen: 'Friends',
+      accessibilityLabel: 'View friends list'
+    },
+    {
+      id: 'settings',
+      icon: 'settings-outline',
+      color: '#10B981',
+      text: 'Settings',
+      screen: 'Settings',
+      accessibilityLabel: 'Open settings'
+    },
+    {
+      id: 'safety',
+      icon: 'shield-checkmark-outline',
+      color: '#F59E0B',
+      text: 'Safety',
+      screen: 'SafetyPage',
+      accessibilityLabel: 'View safety features'
+    }
+  ], []);
+
+  // Render action card
+  const renderActionCard = useCallback(({ item }) => (
+    <TouchableOpacity 
+      key={item.id}
+      style={styles.actionCard} 
+      onPress={() => navigation.navigate(item.screen)}
+      accessible={true}
+      accessibilityLabel={item.accessibilityLabel}
+      accessibilityRole="button"
+      activeOpacity={0.7}
+    >
+      <View style={[styles.actionIcon, { backgroundColor: `${item.color}15` }]}>
+        <Ionicons name={item.icon} size={wp(6)} color={item.color} />
+      </View>
+      <Text style={styles.actionText}>{item.text}</Text>
+    </TouchableOpacity>
+  ), [navigation]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor="#F8FAFC" />
       
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header with enhanced styling */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.menuBtn}>
-              <Ionicons name="menu" size={wp(5.5)} color="#475569" />
-            </TouchableOpacity>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Hi there</Text>
-              <Text style={styles.headerTime}>{currentTime}</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.notificationBtn}>
-              <Ionicons name="notifications-outline" size={wp(5.5)} color="#475569" />
-              <View style={styles.notificationDot} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Enhanced Greeting Card */}
-        <View style={styles.greetingCard}>
-          <View style={styles.greetingContent}>
-            <View style={styles.greetingTextContainer}>
-              <Text style={styles.greetingText}>{getGreeting()}</Text>
-              <Text style={styles.greetingSubtext}>Stay safe and connected today.</Text>
-            </View>
-            <View style={styles.greetingIcon}>
-              <Text style={styles.greetingEmoji}>👋</Text>
-            </View>
-          </View>
-          <View style={styles.weatherInfo}>
-            <View style={styles.weatherItem}>
-              <Ionicons name="location-outline" size={wp(4)} color="#64748B" />
-              <Text style={styles.weatherText}>Current Location</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionGrid}>
-            <TouchableOpacity 
-              style={styles.actionCard} 
-              onPress={() => navigation.navigate('MapPage')}
-            >
-              <View style={styles.actionIcon}>
-                <Ionicons name="map-outline" size={wp(6)} color="#0EA5E9" />
-              </View>
-              <Text style={styles.actionText}>Map View</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.actionCard}
-              onPress={() => navigation.navigate('Friends')}
-            >
-              <View style={styles.actionIcon}>
-                <Ionicons name="people-outline" size={wp(6)} color="#8B5CF6" />
-              </View>
-              <Text style={styles.actionText}>Friends</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.actionCard}
-              onPress={() => navigation.navigate('Settings')}
-            >
-              <View style={styles.actionIcon}>
-                <Ionicons name="settings-outline" size={wp(6)} color="#10B981" />
-              </View>
-              <Text style={styles.actionText}>Settings</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => navigation.navigate('SafetyPage')}
-            
-            >
-
-              <View style={styles.actionIcon}>
-                <Ionicons name="shield-checkmark-outline" size={wp(6)} color="#F59E0B" />
-              </View>
-              <Text style={styles.actionText}>Safety</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Enhanced Map Preview */}
-        <View style={styles.mapSection}>
-          <View style={styles.mapHeader}>
-            <Text style={styles.sectionTitle}>Your Location</Text>
-            <TouchableOpacity 
-              style={styles.fullscreenBtn}
-              onPress={() => navigation.navigate('MapPage')}
-            >
-              <Ionicons name="expand-outline" size={wp(4.5)} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.mapContainer}>
-            {loading ? (
-              <View style={styles.loaderContainer}>
-                <View style={styles.loaderContent}>
-                  <ActivityIndicator size="large" color="#0EA5E9" />
-                  <Text style={styles.loadingText}>Loading your location...</Text>
-                </View>
-              </View>
-            ) : (
-              <MapView
-                style={styles.map}
-                initialRegion={{
-                  latitude: location?.latitude || 0,
-                  longitude: location?.longitude || 0,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-                scrollEnabled={false}
-                zoomEnabled={false}
-                rotateEnabled={false}
-                pitchEnabled={false}
+      <Animated.View style={[
+        { flex: 1 },
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }]
+        }
+      ]}>
+        <ScrollView 
+          style={styles.container}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#0EA5E9']}
+              tintColor="#0EA5E9"
+            />
+          }
+        >
+          {/* Enhanced Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity 
+                onPress={() => setModalVisible(true)} 
+                style={styles.menuBtn}
+                accessible={true}
+                accessibilityLabel="Open menu"
+                accessibilityRole="button"
+                activeOpacity={0.7}
               >
-                {location && (
-                  <Marker
-                    coordinate={{
-                      latitude: location.latitude,
-                      longitude: location.longitude,
-                    }}
-                    title="You are here"
-                    pinColor="blue"
-                  />
-                )}
-              </MapView>
-            )}
-            <TouchableOpacity 
-              style={styles.mapOverlay}
-              onPress={() => navigation.navigate('MapPage')}
-            >
-              <View style={styles.mapOverlayContent}>
-                <Ionicons name="expand-outline" size={wp(5)} color="#FFFFFF" />
-                <Text style={styles.mapOverlayText}>Tap to expand</Text>
+                <Ionicons name="menu" size={wp(5.5)} color="#475569" />
+              </TouchableOpacity>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Hi there</Text>
+                <Text style={styles.headerSubtitle}>{currentDate}</Text>
+                <Text style={styles.headerTime}>{currentTime}</Text>
               </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Enhanced Emergency Button */}
-        <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
-          <View style={styles.emergencyContent}>
-            <View style={styles.emergencyIcon}>
-              <Ionicons name="warning" size={wp(6)} color="#FFFFFF" />
             </View>
-            <View style={styles.emergencyTextContainer}>
-              <Text style={styles.emergencyText}>Emergency</Text>
-              <Text style={styles.emergencySubtext}>Tap for immediate help</Text>
+            <View style={styles.headerRight}>
+              <TouchableOpacity 
+                style={styles.notificationBtn}
+                accessible={true}
+                accessibilityLabel="View notifications"
+                accessibilityRole="button"
+                activeOpacity={0.7}
+              >
+                <Ionicons name="notifications-outline" size={wp(5.5)} color="#475569" />
+                <View style={styles.notificationDot} />
+              </TouchableOpacity>
             </View>
           </View>
-        </TouchableOpacity>
-      </ScrollView>
 
-      {/* Enhanced Modal - Matching MapPage Style */}
-      <Modal visible={modalVisible} transparent animationType="slide">
+          {/* Enhanced Greeting Card */}
+          <View style={styles.greetingCard}>
+            <View style={styles.greetingContent}>
+              <View style={styles.greetingTextContainer}>
+                <Text style={styles.greetingText}>{greeting}</Text>
+                <Text style={styles.greetingSubtext}>Stay safe and connected today.</Text>
+              </View>
+              <View style={styles.greetingIcon}>
+                <Text style={styles.greetingEmoji}>👋</Text>
+              </View>
+            </View>
+            <View style={styles.weatherInfo}>
+              <View style={styles.weatherItem}>
+                <Ionicons name="sunny-outline" size={wp(4)} color="#F59E0B" />
+                <Text style={styles.weatherText}>{weatherData.condition}, {weatherData.temp}</Text>
+              </View>
+              <View style={styles.locationItem}>
+                <Ionicons name="location-outline" size={wp(4)} color="#64748B" />
+                <Text style={styles.weatherText} numberOfLines={1}>{locationName}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Enhanced Quick Actions */}
+          <View style={styles.quickActions}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.actionGrid}>
+              {quickActions.map((action) => renderActionCard({ item: action }))}
+            </View>
+          </View>
+
+          {/* Enhanced Map Preview */}
+          <View style={styles.mapSection}>
+            <View style={styles.mapHeader}>
+              <Text style={styles.sectionTitle}>Your Location</Text>
+              <TouchableOpacity 
+                style={styles.fullscreenBtn}
+                onPress={() => navigation.navigate('MapPage')}
+                accessible={true}
+                accessibilityLabel="Expand map view"
+                accessibilityRole="button"
+                activeOpacity={0.7}
+              >
+                <Ionicons name="expand-outline" size={wp(4.5)} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.mapContainer}>
+              {loading ? (
+                <View style={styles.loaderContainer}>
+                  <View style={styles.loaderContent}>
+                    <ActivityIndicator size="large" color="#0EA5E9" />
+                    <Text style={styles.loadingText}>Loading your location...</Text>
+                  </View>
+                </View>
+              ) : locationError ? (
+                <View style={styles.errorContainer}>
+                  <View style={styles.errorContent}>
+                    <Ionicons name="location-outline" size={wp(8)} color="#94A3B8" />
+                    <Text style={styles.errorText}>Location unavailable</Text>
+                    <TouchableOpacity 
+                      style={styles.retryButton}
+                      onPress={() => {
+                        setLoading(true);
+                        getLocation().finally(() => setLoading(false));
+                      }}
+                    >
+                      <Text style={styles.retryText}>Retry</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <MapView
+                  style={styles.map}
+                  initialRegion={{
+                    latitude: location?.latitude || 0,
+                    longitude: location?.longitude || 0,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                  scrollEnabled={false}
+                  zoomEnabled={false}
+                  rotateEnabled={false}
+                  pitchEnabled={false}
+                  showsUserLocation={true}
+                  showsMyLocationButton={false}
+                >
+                  {location && (
+                    <Marker
+                      coordinate={{
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                      }}
+                      title="You are here"
+                      description={locationName}
+                    />
+                  )}
+                </MapView>
+              )}
+              <TouchableOpacity 
+                style={styles.mapOverlay}
+                onPress={() => navigation.navigate('MapPage')}
+                accessible={true}
+                accessibilityLabel="Tap to expand map"
+                accessibilityRole="button"
+                activeOpacity={0.8}
+              >
+                <View style={styles.mapOverlayContent}>
+                  <Ionicons name="expand-outline" size={wp(5)} color="#FFFFFF" />
+                  <Text style={styles.mapOverlayText}>Tap to expand</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Enhanced Emergency Button */}
+          <TouchableOpacity 
+            style={styles.emergencyBtn} 
+            onPress={handleEmergency}
+            accessible={true}
+            accessibilityLabel="Emergency button - tap for immediate help"
+            accessibilityRole="button"
+            activeOpacity={0.8}
+          >
+            <View style={styles.emergencyContent}>
+              <View style={styles.emergencyIcon}>
+                <Ionicons name="warning" size={wp(6)} color="#FFFFFF" />
+              </View>
+              <View style={styles.emergencyTextContainer}>
+                <Text style={styles.emergencyText}>Emergency</Text>
+                <Text style={styles.emergencySubtext}>Tap for immediate help</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
+      </Animated.View>
+
+      {/* Enhanced Modal */}
+      <Modal 
+        visible={modalVisible} 
+        transparent 
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setModalVisible(false)} />
+          <Pressable 
+            style={styles.modalBackdrop} 
+            onPress={() => setModalVisible(false)}
+            accessible={true}
+            accessibilityLabel="Close menu"
+            accessibilityRole="button"
+          />
           <View style={styles.modalContainer}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Menu</Text>
@@ -259,19 +472,27 @@ const HomePage = () => {
               <Pressable 
                 style={styles.modalItem} 
                 onPress={() => handleMenuPress('MapPage')}
+                accessible={true}
+                accessibilityLabel="Go to map view"
+                accessibilityRole="button"
+                android_ripple={{ color: '#E2E8F0' }}
               >
                 <View style={styles.modalIconContainer}>
                   <Text style={styles.modalIcon}>🗺️</Text>
                 </View>
                 <View style={styles.modalTextContainer}>
                   <Text style={styles.modalText}>Map View</Text>
-                  <Text style={styles.modalSubtext}>View you and your Friends location</Text>
+                  <Text style={styles.modalSubtext}>View you and your friends' locations</Text>
                 </View>
               </Pressable>
               
               <Pressable 
                 style={styles.modalItem} 
                 onPress={() => handleMenuPress('Friends')}
+                accessible={true}
+                accessibilityLabel="Go to friends list"
+                accessibilityRole="button"
+                android_ripple={{ color: '#E2E8F0' }}
               >
                 <View style={styles.modalIconContainer}>
                   <Text style={styles.modalIcon}>👥</Text>
@@ -285,18 +506,46 @@ const HomePage = () => {
               <Pressable 
                 style={styles.modalItem} 
                 onPress={() => handleMenuPress('Settings')}
+                accessible={true}
+                accessibilityLabel="Go to settings"
+                accessibilityRole="button"
+                android_ripple={{ color: '#E2E8F0' }}
               >
                 <View style={styles.modalIconContainer}>
                   <Text style={styles.modalIcon}>⚙️</Text>
                 </View>
                 <View style={styles.modalTextContainer}>
                   <Text style={styles.modalText}>Settings</Text>
-                  <Text style={styles.modalSubtext}>Preferences</Text>
+                  <Text style={styles.modalSubtext}>App preferences</Text>
                 </View>
               </Pressable>
+
+              {/* <Pressable 
+                style={styles.modalItem} 
+                onPress={() => handleMenuPress('SafetyPage')}
+                accessible={true}
+                accessibilityLabel="Go to safety features"
+                accessibilityRole="button"
+                android_ripple={{ color: '#E2E8F0' }}
+              >
+                <View style={styles.modalIconContainer}>
+                  <Text style={styles.modalIcon}>🛡️</Text>
+                </View>
+                <View style={styles.modalTextContainer}>
+                  <Text style={styles.modalText}>Safety</Text>
+                  <Text style={styles.modalSubtext}>Safety features and alerts</Text>
+                </View>
+              </Pressable> */}
             </View>
             
-            <Pressable style={styles.modalClose} onPress={() => setModalVisible(false)}>
+            <Pressable 
+              style={styles.modalClose} 
+              onPress={() => setModalVisible(false)}
+              accessible={true}
+              accessibilityLabel="Close menu"
+              accessibilityRole="button"
+              android_ripple={{ color: '#E2E8F0' }}
+            >
               <Text style={styles.modalCloseText}>Close Menu</Text>
             </Pressable>
           </View>
@@ -351,11 +600,17 @@ const styles = StyleSheet.create({
     fontSize: isTablet ? wp(5) : wp(6),
     color: '#0F172A',
     fontWeight: '700',
-    marginBottom: hp(0.3),
+    marginBottom: hp(0.2),
+  },
+  headerSubtitle: {
+    fontSize: isTablet ? wp(3.2) : wp(3.5),
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: hp(0.2),
   },
   headerTime: {
-    fontSize: isTablet ? wp(3) : wp(3.5),
-    color: '#64748B',
+    fontSize: isTablet ? wp(3) : wp(3.2),
+    color: '#94A3B8',
     fontWeight: '500',
   },
   headerRight: {
@@ -426,11 +681,19 @@ const styles = StyleSheet.create({
   },
   weatherInfo: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   weatherItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  locationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   weatherText: {
     fontSize: isTablet ? wp(3) : wp(3.5),
@@ -471,7 +734,6 @@ const styles = StyleSheet.create({
     width: wp(12),
     height: wp(12),
     borderRadius: wp(3),
-    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: hp(1.5),
@@ -529,6 +791,33 @@ const styles = StyleSheet.create({
     marginTop: hp(1.5),
     color: '#64748B',
     fontWeight: '500',
+    fontSize: wp(3.5),
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  errorContent: {
+    alignItems: 'center',
+  },
+  errorText: {
+    marginTop: hp(1),
+    color: '#94A3B8',
+    fontWeight: '500',
+    fontSize: wp(3.5),
+  },
+  retryButton: {
+    marginTop: hp(1),
+    backgroundColor: '#0EA5E9',
+    paddingHorizontal: wp(4),
+    paddingVertical: wp(2),
+    borderRadius: wp(2),
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
     fontSize: wp(3.5),
   },
   mapOverlay: {
@@ -595,14 +884,14 @@ const styles = StyleSheet.create({
   modalContainer: {
     backgroundColor: '#FFFFFF',
     padding: wp(6),
-    borderTopLeftRadius: wp(7),
-    borderTopRightRadius: wp(7),
+    borderTopLeftRadius: wp(6),
+    borderTopRightRadius: wp(6),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 16,
-    maxHeight: hp(70),
+    maxHeight: hp(80),
   },
   modalHandle: {
     width: wp(10),
@@ -668,6 +957,7 @@ const styles = StyleSheet.create({
     paddingVertical: hp(2),
     backgroundColor: '#F1F5F9',
     borderRadius: wp(3),
+    marginTop: hp(2),
   },
   modalCloseText: {
     fontSize: isTablet ? wp(3.5) : wp(4),

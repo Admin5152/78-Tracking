@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { account } from '../lib/appwriteConfig'; // Update path if needed
+import { account } from '../lib/appwriteConfig';
 
 export default function FamilyIntroPage({ navigation }) {
   const [username, setUsername] = useState('');
@@ -21,7 +21,7 @@ export default function FamilyIntroPage({ navigation }) {
         setUsername(user.prefs.username || 'there');
       } catch (error) {
         console.log('Error fetching user:', error);
-        setUsername('there'); // fallback
+        setUsername('there');
       } finally {
         setLoading(false);
       }
@@ -34,6 +34,7 @@ export default function FamilyIntroPage({ navigation }) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#38BDF8" />
+        <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
     );
   }
@@ -41,29 +42,35 @@ export default function FamilyIntroPage({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
-        <Text style={styles.header}>Hi {username}!</Text>
-        <Text style={styles.subtext}>
-          Now you can join or create your <Text style={styles.bold}>Circle</Text>
-        </Text>
+        <View style={styles.headerContainer}>
+          <Text style={styles.header}>Hi {username}! 👋</Text>
+          <Text style={styles.subtext}>
+            Ready to join or create your <Text style={styles.highlight}>Circle</Text>?
+          </Text>
+        </View>
 
-        <View style={{ marginVertical: 24 }}>
+        <View style={styles.imageContainer}>
           <Image
             source={require('../assets/Family.png')}
-            style={{ width: 180, height: 180, resizeMode: 'contain' }}
+            style={styles.familyImage}
             accessible
             accessibilityLabel="Family illustration"
           />
         </View>
 
-        <Text style={styles.description}>
-          A Circle is a private space only accessible by you and your family.
-        </Text>
+        <View style={styles.descriptionContainer}>
+          <Text style={styles.description}>
+            A Circle is your family's private space to share moments, 
+            stay connected, and create lasting memories together.
+          </Text>
+        </View>
 
         <TouchableOpacity
           style={styles.continueButton}
-          onPress={() => navigation.navigate('Home')} // 🔁 Navigates to 'Home' page
+          onPress={() => navigation.navigate('Home')}
+          activeOpacity={0.8}
         >
-          <Text style={styles.continueButtonText}>Continue</Text>
+          <Text style={styles.continueButtonText}>Get Started</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -73,52 +80,82 @@ export default function FamilyIntroPage({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    backgroundColor: '#F8FAFC',
   },
   inner: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 40,
+  },
+  headerContainer: {
+    alignItems: 'center',
+    marginBottom: 48,
   },
   header: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 34,
+    fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 10,
+    marginBottom: 12,
     textAlign: 'center',
   },
   subtext: {
     fontSize: 18,
-    color: '#475569',
-    marginBottom: 8,
+    color: '#64748B',
     textAlign: 'center',
+    lineHeight: 26,
   },
-  bold: {
-    fontWeight: 'bold',
+  highlight: {
+    fontWeight: '700',
     color: '#0F172A',
   },
+  imageContainer: {
+    marginBottom: 48,
+  },
+  familyImage: {
+    width: 200,
+    height: 200,
+    resizeMode: 'contain',
+  },
+  descriptionContainer: {
+    marginBottom: 48,
+    paddingHorizontal: 8,
+  },
   description: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#64748B',
-    marginBottom: 30,
     textAlign: 'center',
-    paddingHorizontal: 10,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   continueButton: {
     backgroundColor: '#38BDF8',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    elevation: 4,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 16,
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   continueButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  loadingText: {
+    color: '#64748B',
+    fontSize: 16,
+    marginTop: 16,
+    fontWeight: '500',
   },
 });

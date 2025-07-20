@@ -73,6 +73,9 @@ const handleEmailSupport = () => {
   );
 };
 
+  const handleJarvisNavigation = () => {
+    navigation.navigate('JarvisPage');
+  };
 
   const SettingItem = ({ icon, title, subtitle, onPress, showChevron = true, hasDropdown = false, expanded = false }) => (
     <View>
@@ -169,11 +172,12 @@ const handleEmailSupport = () => {
                 
                 <View style={styles.divider} />
                 
-                {/* <SettingItem 
-                  icon="chatbubble-outline"
-                  title="Chat"
-                  onPress={() => {}}
-                /> */}
+                <SettingItem 
+                  icon="chatbubble-ellipses-outline"
+                  title="Jarvis AI Assistant"
+                  subtitle="Access your AI companion"
+                  onPress={handleJarvisNavigation}
+                />
                 
                 <View style={styles.divider} />
                 

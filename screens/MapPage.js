@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,17 +11,54 @@ import {
   Pressable,
   Dimensions,
   Platform,
-  StatusBar
+  StatusBar,
+  ScrollView
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 const { width, height } = Dimensions.get('window');
 
+// Fixed friends data with proper Accra coordinates
+const FRIENDS_DATA = [
+  {
+    id: 1,
+    name: "Alice Johnson",
+    latitude: 5.6037,
+    longitude: -0.1870,
+    status: "online",
+    lastSeen: "2 min ago",
+    avatar: "👩‍💼"
+  },
+  {
+    id: 2,
+    name: "David Wilson",
+    latitude: 5.6150,
+    longitude: -0.1750,
+    status: "offline",
+    lastSeen: "1 hour ago",
+    avatar: "👨‍🔬"
+  },
+  {
+    id: 3,
+    name: "Emma Brown",
+    latitude: 5.5920,
+    longitude: -0.1920,
+    status: "online",
+    lastSeen: "Just now",
+    avatar: "👩‍🚀"
+  }
+];
+
 export default function MapPage({ navigation }) {
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [friendsVisible, setFriendsVisible] = useState(true);
+  const [selectedFriend, setSelectedFriend] = useState(null);
+  
+  // Add map reference for controlling zoom
+  const mapRef = useRef(null);
 
   useEffect(() => {
     let subscription;
@@ -77,6 +114,43 @@ export default function MapPage({ navigation }) {
     Alert.alert("Emergency", "Emergency services have been contacted!");
   };
 
+  const handleFriendMarkerPress = (friend) => {
+    setSelectedFriend(friend);
+    Alert.alert(
+      `${friend.name}`,
+      `Status: ${friend.status}\nLast seen: ${friend.lastSeen}`,
+      [
+        { text: "Close", style: "cancel" },
+        { text: "Message", onPress: () => Alert.alert("Message", `Messaging ${friend.name}`) }
+      ]
+    );
+  };
+
+  const toggleFriendsVisibility = () => {
+    setFriendsVisible(!friendsVisible);
+  };
+
+  // Function to zoom to user's current location
+  const zoomToMyLocation = () => {
+    if (location && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        latitudeDelta: 0.005, // Smaller delta for more zoom
+        longitudeDelta: 0.005,
+      }, 1000); // 1 second animation
+    }
+  };
+
+  const getMarkerColor = (status) => {
+    switch (status) {
+      case 'online': return '#10B981';
+      case 'away': return '#F59E0B';
+      case 'offline': return '#6B7280';
+      default: return '#6B7280';
+    }
+  };
+
   if (loading || !location) {
     return (
       <SafeAreaView style={styles.loader}>
@@ -104,7 +178,7 @@ export default function MapPage({ navigation }) {
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
             <Text style={styles.header}>Map View</Text>
-            <Text style={styles.headerSubtext}>Your current location</Text>
+            <Text style={styles.headerSubtext}>Your location & friends</Text>
           </View>
         </View>
       </View>
@@ -112,18 +186,20 @@ export default function MapPage({ navigation }) {
       {/* Map Container with rounded corners and shadow */}
       <View style={styles.mapContainer}>
         <MapView
+          ref={mapRef}
           style={styles.map}
           region={{
             latitude: location.latitude,
             longitude: location.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
           }}
           showsUserLocation={true}
           showsMyLocationButton={false}
           showsCompass={true}
           showsScale={true}
         >
+          {/* Your location marker */}
           <Marker
             coordinate={{
               latitude: location.latitude,
@@ -132,11 +208,31 @@ export default function MapPage({ navigation }) {
             title="You are here"
             pinColor="blue"
           />
+          
+          {/* Friends markers */}
+          {friendsVisible && FRIENDS_DATA.map((friend) => (
+            <Marker
+              key={friend.id}
+              coordinate={{
+                latitude: friend.latitude,
+                longitude: friend.longitude,
+              }}
+              title={friend.name}
+              description={`${friend.status} • ${friend.lastSeen}`}
+              pinColor={getMarkerColor(friend.status)}
+              onPress={() => handleFriendMarkerPress(friend)}
+            />
+          ))}
         </MapView>
         
         {/* Map overlay controls */}
         <View style={styles.mapControls}>
-          <TouchableOpacity style={styles.controlButton}>
+          <TouchableOpacity style={styles.controlButton} onPress={toggleFriendsVisibility}>
+            <Text style={styles.controlButtonText}>
+              {friendsVisible ? '👥' : '👁️'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton} onPress={zoomToMyLocation}>
             <Text style={styles.controlButtonText}>📍</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.controlButton}>
@@ -157,15 +253,32 @@ export default function MapPage({ navigation }) {
         <Text style={styles.coordinates}>
           {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
         </Text>
+        <View style={styles.friendsCounter}>
+          <Text style={styles.friendsCounterText}>
+            {friendsVisible ? `${FRIENDS_DATA.length} friends visible` : 'Friends hidden'}
+          </Text>
+        </View>
       </View>
 
-      {/* Emergency Button with enhanced styling */}
-      <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
-        <View style={styles.emergencyContent}>
-          <Text style={styles.emergencyIcon}>🚨</Text>
-          <Text style={styles.emergencyText}>Emergency</Text>
+      {/* Friends list card */}
+      {friendsVisible && (
+        <View style={styles.friendsCard}>
+          <Text style={styles.friendsCardTitle}>Friends Nearby</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {FRIENDS_DATA.map((friend) => (
+              <TouchableOpacity
+                key={friend.id}
+                style={styles.friendItem}
+                onPress={() => handleFriendMarkerPress(friend)}
+              >
+                <Text style={styles.friendAvatar}>{friend.avatar}</Text>
+                <Text style={styles.friendName}>{friend.name.split(' ')[0]}</Text>
+                <View style={[styles.statusDot, { backgroundColor: getMarkerColor(friend.status) }]} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
-      </TouchableOpacity>
+      )}
 
       {/* Enhanced Slide-Up Modal Menu */}
       <Modal
@@ -297,6 +410,19 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
   },
+  friendsToggle: {
+    padding: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  friendsToggleText: {
+    fontSize: 20,
+  },
   mapContainer: {
     flex: 1,
     margin: width * 0.05,
@@ -377,6 +503,58 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
+  friendsCounter: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  friendsCounterText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  friendsCard: {
+    marginHorizontal: width * 0.05,
+    marginTop: 5,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  friendsCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 12,
+  },
+  friendItem: {
+    alignItems: 'center',
+    marginRight: 16,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 12,
+    minWidth: 70,
+  },
+  friendAvatar: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  friendName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   emergencyBtn: {
     marginHorizontal: width * 0.05,
     marginTop: 15,
@@ -415,8 +593,8 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: '#FFFFFF',
     padding: 24,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,

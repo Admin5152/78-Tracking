@@ -5,7 +5,7 @@ export default function LandingPage({ navigation }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       navigation.navigate('Login');
-    }, 5000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [navigation]);
@@ -26,7 +26,7 @@ export default function LandingPage({ navigation }) {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0b0b0bff',
     justifyContent: 'center',
     alignItems: 'center',
   },

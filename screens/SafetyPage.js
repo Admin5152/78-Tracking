@@ -15,6 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import * as MailComposer from 'expo-mail-composer';
+import * as SMS from 'expo-sms';
 
 const { width, height } = Dimensions.get('window');
 
@@ -34,10 +36,16 @@ export default function SafetyPage() {
   const [ringAnim] = useState(new Animated.Value(0));
   const [location, setLocation] = useState(null);
   const [progressInterval, setProgressInterval] = useState(null);
+  const [showInfoDropdown, setShowInfoDropdown] = useState(false);
+  const [dropdownAnim] = useState(new Animated.Value(0));
 
   const EMERGENCY_EMAIL = 'sethagyeimensah2@gmail.com';
+  const EMERGENCY_PHONE = '0531771442';
 
   useEffect(() => {
+    // Request location permission and get current location
+    requestLocationPermission();
+    
     // Pulse animation for the emergency button
     const pulseAnimation = Animated.loop(
       Animated.sequence([
@@ -58,8 +66,32 @@ export default function SafetyPage() {
     return () => pulseAnimation.stop();
   }, []);
 
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const currentLocation = await Location.getCurrentPositionAsync({});
+        setLocation(currentLocation);
+      }
+    } catch (error) {
+      console.log('Error getting location:', error);
+    }
+  };
+
+  const toggleInfoDropdown = () => {
+    const toValue = showInfoDropdown ? 0 : 1;
+    setShowInfoDropdown(!showInfoDropdown);
+    
+    Animated.timing(dropdownAnim, {
+      toValue,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
   const handlePressIn = () => {
-    setPressStart(Date.now());
+    const startTime = Date.now();
+    setPressStart(startTime);
     setIsPressed(true);
     setProgress(0);
 
@@ -71,15 +103,17 @@ export default function SafetyPage() {
     }).start();
 
     // Progress animation
-    const progressInterval = setInterval(() => {
-      const elapsed = Date.now() - Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
       const progressValue = Math.min(elapsed / 2000, 1);
       setProgress(progressValue);
+      
+      if (progressValue >= 1) {
+        clearInterval(interval);
+      }
     }, 16);
 
-    setTimeout(() => {
-      clearInterval(progressInterval);
-    }, 2000);
+    setProgressInterval(interval);
   };
 
   const handlePressOut = () => {
@@ -87,11 +121,17 @@ export default function SafetyPage() {
     setIsPressed(false);
     setProgress(0);
     
+    // Clear progress interval
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      setProgressInterval(null);
+    }
+    
     // Reset ring animation
     ringAnim.setValue(0);
 
     if (heldTime >= 2000) {
-      sendHelpAlert();
+      sendEmergencyAlert();
     } else if (pressStart) {
       Alert.alert(
         "Hold Longer", 
@@ -101,36 +141,129 @@ export default function SafetyPage() {
     }
   };
 
-  const sendHelpAlert = async () => {
+  const getCurrentLocationString = () => {
+    if (location) {
+      const { latitude, longitude } = location.coords;
+      return `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\nGoogle Maps: https://maps.google.com/?q=${latitude},${longitude}`;
+    }
+    return 'Location: Unable to determine current location';
+  };
+
+  const sendEmergencyEmail = async () => {
     try {
-      Alert.alert(
-        "Emergency Alert Sent!", 
-        "Your emergency contacts and local authorities have been notified.",
-        [{ text: "OK", style: "default" }]
-      );
+      const isAvailable = await MailComposer.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Email Not Available', 'Email is not available on this device');
+        return false;
+      }
+
+      const locationString = getCurrentLocationString();
+      const timestamp = new Date().toLocaleString();
+
+      const emailBody = `
+🚨 EMERGENCY ALERT 🚨
+
+This is an automated emergency message.
+
+Time: ${timestamp}
+${locationString}
+
+The user has activated the emergency alert system. Please respond immediately.
+
+This message was sent automatically by the Safety App.
+      `;
+
+      const result = await MailComposer.composeAsync({
+        recipients: [EMERGENCY_EMAIL],
+        subject: '🚨 EMERGENCY ALERT - Immediate Response Required',
+        body: emailBody,
+      });
+
+      return result.status === 'sent';
     } catch (error) {
-      Alert.alert(
-        "Alert Failed", 
-        "Failed to send emergency alert. Please try again.",
-        [{ text: "OK", style: "cancel" }]
-      );
+      console.error('Error sending email:', error);
+      return false;
     }
   };
 
-  const handleQuickAction = (action) => {
-    switch(action) {
-      case 'police':
-        Alert.alert("Calling Police", "Emergency call to local police initiated");
-        break;
-      case 'medical':
-        Alert.alert("Medical Emergency", "Medical emergency services contacted");
-        break;
-      case 'fire':
-        Alert.alert("Fire Emergency", "Fire department has been contacted");
-        break;
-      case 'contacts':
-        Alert.alert("Emergency Contacts", "Notifying your emergency contacts");
-        break;
+  const sendEmergencySMS = async () => {
+    try {
+      const isAvailable = await SMS.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('SMS Not Available', 'SMS is not available on this device');
+        return false;
+      }
+
+      const locationString = getCurrentLocationString();
+      const timestamp = new Date().toLocaleString();
+
+      const smsBody = `🚨 EMERGENCY ALERT 🚨\n\nTime: ${timestamp}\n${locationString}\n\nPlease respond immediately. This is an automated emergency message.`;
+
+      const result = await SMS.sendSMSAsync([EMERGENCY_PHONE], smsBody);
+      return result.result === 'sent';
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      return false;
+    }
+  };
+
+  const sendEmergencyAlert = async () => {
+    try {
+      // Show loading alert
+      Alert.alert(
+        "Sending Emergency Alert", 
+        "Please wait while we send your emergency message...",
+        [],
+        { cancelable: false }
+      );
+
+      // Try both email and SMS
+      const emailSent = await sendEmergencyEmail();
+      const smsSent = await sendEmergencySMS();
+
+      // Dismiss loading alert and show result
+      if (emailSent || smsSent) {
+        let message = "Emergency alert sent successfully via ";
+        if (emailSent && smsSent) {
+          message += "email and SMS";
+        } else if (emailSent) {
+          message += "email";
+        } else {
+          message += "SMS";
+        }
+        
+        Alert.alert(
+          "✅ Emergency Alert Sent!", 
+          message + "\n\nYour emergency contact has been notified with your location.",
+          [{ text: "OK", style: "default" }]
+        );
+      } else {
+        // If both fail, try opening phone dialer as fallback
+        Alert.alert(
+          "Alert Failed", 
+          "Unable to send emergency message. Would you like to call emergency services directly?",
+          [
+            { text: "Cancel", style: "cancel" },
+            { 
+              text: "Call", 
+              style: "default", 
+              onPress: () => {
+                Linking.openURL(`tel:${EMERGENCY_PHONE}`);
+              }
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Emergency alert error:', error);
+      Alert.alert(
+        "Alert Failed", 
+        "Failed to send emergency alert. Please try again or contact emergency services directly.",
+        [
+          { text: "Retry", style: "default", onPress: sendEmergencyAlert },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
     }
   };
 
@@ -156,62 +289,116 @@ export default function SafetyPage() {
             <Text style={styles.headerSubtitle}>Your safety is our priority</Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.infoButton}>
-              <Ionicons name="information-circle-outline" size={wp(5)} color="#475569" />
+            <TouchableOpacity 
+              style={[styles.infoButton, showInfoDropdown && styles.infoButtonActive]} 
+              onPress={toggleInfoDropdown}
+            >
+              <Ionicons 
+                name={showInfoDropdown ? "close" : "information-circle-outline"} 
+                size={wp(5)} 
+                color={showInfoDropdown ? "#EF4444" : "#475569"} 
+              />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Safety Status Card */}
-        <View style={styles.statusCard}>
-          <View style={styles.statusHeader}>
-            <View style={styles.statusIcon}>
-              <Ionicons name="shield-checkmark" size={wp(6)} color="#10B981" />
+        {/* Info Dropdown */}
+        {showInfoDropdown && (
+          <Animated.View 
+            style={[
+              styles.infoDropdown,
+              {
+                maxHeight: dropdownAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 1000]
+                }),
+                opacity: dropdownAnim
+              }
+            ]}
+          >
+            {/* Safety Status Card */}
+            <View style={styles.statusCard}>
+              <View style={styles.statusHeader}>
+                <View style={styles.statusIcon}>
+                  <Ionicons name="shield-checkmark" size={wp(6)} color="#10B981" />
+                </View>
+                <View style={styles.statusTextContainer}>
+                  <Text style={styles.statusTitle}>Safety Status</Text>
+                  <Text style={styles.statusSubtitle}>System Active & Monitoring</Text>
+                </View>
+                <View style={styles.statusIndicator} />
+              </View>
+              <View style={styles.statusDetails}>
+                <View style={styles.statusItem}>
+                  <Ionicons name="location" size={wp(4)} color="#0EA5E9" />
+                  <Text style={styles.statusItemText}>
+                    {location ? 'Location tracking enabled' : 'Location access needed'}
+                  </Text>
+                </View>
+                <View style={styles.statusItem}>
+                  <Ionicons name="mail" size={wp(4)} color="#8B5CF6" />
+                  <Text style={styles.statusItemText}>Email alerts configured</Text>
+                </View>
+                <View style={styles.statusItem}>
+                  <Ionicons name="chatbubble" size={wp(4)} color="#EF4444" />
+                  <Text style={styles.statusItemText}>SMS alerts configured</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.statusTextContainer}>
-              <Text style={styles.statusTitle}>Safety Status</Text>
-              <Text style={styles.statusSubtitle}>System Active & Monitoring</Text>
-            </View>
-            <View style={styles.statusIndicator} />
-          </View>
-          <View style={styles.statusDetails}>
-            <View style={styles.statusItem}>
-              <Ionicons name="location" size={wp(4)} color="#0EA5E9" />
-              <Text style={styles.statusItemText}>Location tracking enabled</Text>
-            </View>
-            <View style={styles.statusItem}>
-              <Ionicons name="people" size={wp(4)} color="#8B5CF6" />
-              <Text style={styles.statusItemText}>Emergency contacts ready</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* Emergency Instruction Card
-        <View style={styles.instructionCard}>
-          <View style={styles.instructionHeader}>
-            <Text style={styles.instructionTitle}>Emergency Alert</Text>
-            <View style={styles.instructionBadge}>
-              <Text style={styles.instructionBadgeText}>HOLD 2s</Text>
+            {/* Emergency Instruction Card */}
+            <View style={styles.instructionCard}>
+              <View style={styles.instructionHeader}>
+                <Text style={styles.instructionTitle}>How to Use Emergency Alert</Text>
+                <View style={styles.instructionBadge}>
+                  <Text style={styles.instructionBadgeText}>HOLD 2s</Text>
+                </View>
+              </View>
+              <Text style={styles.instructionText}>
+                Press and hold the emergency button for 2 seconds to instantly send emergency alerts via email and SMS with your current location.
+              </Text>
+              <View style={styles.featuresList}>
+                <View style={styles.featureItem}>
+                  <Ionicons name="checkmark-circle" size={wp(4)} color="#10B981" />
+                  <Text style={styles.featureText}>GPS location sharing</Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Ionicons name="checkmark-circle" size={wp(4)} color="#10B981" />
+                  <Text style={styles.featureText}>Email notification sent</Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Ionicons name="checkmark-circle" size={wp(4)} color="#10B981" />
+                  <Text style={styles.featureText}>SMS alert sent</Text>
+                </View>
+              </View>
             </View>
-          </View>
-          <Text style={styles.instructionText}>
-            Press and hold the emergency button for 2 seconds to instantly alert emergency contacts and services with your location.
-          </Text>
-          <View style={styles.featuresList}>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={wp(4)} color="#10B981" />
-              <Text style={styles.featureText}>GPS location sharing</Text>
+
+            {/* Safety Tips */}
+            <View style={styles.tipsSection}>
+              <Text style={styles.sectionTitle}>Safety Tips</Text>
+              <View style={styles.tipsList}>
+                <View style={styles.tipItem}>
+                  <View style={styles.tipIcon}>
+                    <Ionicons name="location" size={wp(4)} color="#0EA5E9" />
+                  </View>
+                  <Text style={styles.tipText}>Keep location services enabled for accurate emergency response</Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <View style={styles.tipIcon}>
+                    <Ionicons name="battery-charging" size={wp(4)} color="#10B981" />
+                  </View>
+                  <Text style={styles.tipText}>Maintain adequate battery level for emergency situations</Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <View style={styles.tipIcon}>
+                    <Ionicons name="wifi" size={wp(4)} color="#8B5CF6" />
+                  </View>
+                  <Text style={styles.tipText}>Ensure stable internet connection for message delivery</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={wp(4)} color="#10B981" />
-              <Text style={styles.featureText}>Automatic emergency calls</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={wp(4)} color="#10B981" />
-              <Text style={styles.featureText}>Contact notification</Text>
-            </View>
-          </View>
-        </View> */}
+          </Animated.View>
+        )}
 
         {/* Enhanced Emergency Button */}
         <View style={styles.emergencySection}>
@@ -283,77 +470,14 @@ export default function SafetyPage() {
           </View>
         </View>
 
-        {/* Quick Actions
-        <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Quick Emergency Actions</Text>
-          <View style={styles.actionGrid}>
-            <TouchableOpacity 
-              style={[styles.actionCard, styles.policeCard]} 
-              onPress={() => handleQuickAction('police')}
-            >
-              <View style={styles.actionIcon}>
-                <Ionicons name="shield" size={wp(5)} color="#FFFFFF" />
-              </View>
-              <Text style={styles.actionTitle}>Police</Text>
-              <Text style={styles.actionSubtitle}>Local authorities</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.actionCard, styles.medicalCard]} 
-              onPress={() => handleQuickAction('medical')}
-            >
-              <View style={styles.actionIcon}>
-                <Ionicons name="medical" size={wp(5)} color="#FFFFFF" />
-              </View>
-              <Text style={styles.actionTitle}>Medical</Text>
-              <Text style={styles.actionSubtitle}>Ambulance</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.actionCard, styles.fireCard]} 
-              onPress={() => handleQuickAction('fire')}
-            >
-              <View style={styles.actionIcon}>
-                <Ionicons name="flame" size={wp(5)} color="#FFFFFF" />
-              </View>
-              <Text style={styles.actionTitle}>Fire Dept</Text>
-              <Text style={styles.actionSubtitle}>Fire emergency</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.actionCard, styles.contactsCard]} 
-              onPress={() => handleQuickAction('contacts')}
-            >
-              <View style={styles.actionIcon}>
-                <Ionicons name="call" size={wp(5)} color="#FFFFFF" />
-              </View>
-              <Text style={styles.actionTitle}>Contacts</Text>
-              <Text style={styles.actionSubtitle}>Family & friends</Text>
-            </TouchableOpacity>
-          </View>
-        </View> */}
-
-        {/* Safety Tips */}
-        <View style={styles.tipsSection}>
-          <Text style={styles.sectionTitle}>Safety Tips</Text>
-          <View style={styles.tipsList}>
-            <View style={styles.tipItem}>
-              <View style={styles.tipIcon}>
-                <Ionicons name="location" size={wp(4)} color="#0EA5E9" />
-              </View>
-              <Text style={styles.tipText}>Keep location services enabled for accurate emergency response</Text>
-            </View>
-            <View style={styles.tipItem}>
-              <View style={styles.tipIcon}>
-                <Ionicons name="battery-charging" size={wp(4)} color="#10B981" />
-              </View>
-              <Text style={styles.tipText}>Maintain adequate battery level for emergency situations</Text>
-            </View>
-            <View style={styles.tipItem}>
-              <View style={styles.tipIcon}>
-                <Ionicons name="people" size={wp(4)} color="#8B5CF6" />
-              </View>
-              <Text style={styles.tipText}>Update emergency contacts regularly</Text>
+        {/* Emergency Contact Info */}
+        <View style={styles.contactCard}>
+          <View style={styles.contactHeader}>
+            <Ionicons name="person-circle" size={wp(8)} color="#0EA5E9" />
+            <View style={styles.contactInfo}>
+              <Text style={styles.contactTitle}>Emergency Contact</Text>
+              <Text style={styles.contactDetails}>Email: {EMERGENCY_EMAIL}</Text>
+              <Text style={styles.contactDetails}>Phone: {EMERGENCY_PHONE}</Text>
             </View>
           </View>
         </View>
@@ -366,7 +490,7 @@ export default function SafetyPage() {
           <View style={styles.warningContent}>
             <Text style={styles.warningTitle}>Important Notice</Text>
             <Text style={styles.warningText}>
-              This emergency feature will share your location and contact emergency services. Use only in genuine emergencies.
+              This emergency feature will share your location and send alerts to emergency contacts. Use only in genuine emergencies.
             </Text>
           </View>
         </View>
@@ -433,6 +557,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  infoButtonActive: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  infoDropdown: {
+    overflow: 'hidden',
+    marginBottom: hp(2),
   },
   statusCard: {
     backgroundColor: '#FFFFFF',
@@ -639,7 +773,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: hp(0.25),
   },
-  quickActionsSection: {
+  contactCard: {
+    backgroundColor: '#FFFFFF',
+    padding: wp(4),
+    borderRadius: wp(4),
+    marginBottom: hp(3),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0EA5E9',
+  },
+  contactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contactInfo: {
+    marginLeft: wp(3),
+    flex: 1,
+  },
+  contactTitle: {
+    fontSize: wp(4),
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: hp(0.5),
+  },
+  contactDetails: {
+    fontSize: wp(3.2),
+    color: '#64748B',
+    marginBottom: hp(0.2),
+  },
+  tipsSection: {
     marginBottom: hp(3),
   },
   sectionTitle: {
@@ -647,60 +813,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: hp(2),
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  actionCard: {
-    width: (wp(90) - wp(5)) / 2,
-    padding: wp(4),
-    borderRadius: wp(4),
-    alignItems: 'center',
-    marginBottom: hp(2),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  policeCard: {
-    backgroundColor: '#1E40AF',
-  },
-  medicalCard: {
-    backgroundColor: '#DC2626',
-  },
-  fireCard: {
-    backgroundColor: '#EA580C',
-  },
-  contactsCard: {
-    backgroundColor: '#7C3AED',
-  },
-  actionIcon: {
-    width: wp(12),
-    height: wp(12),
-    borderRadius: wp(3),
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: hp(1),
-  },
-  actionTitle: {
-    color: '#FFFFFF',
-    fontSize: wp(3.8),
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: hp(0.3),
-  },
-  actionSubtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: wp(3),
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  tipsSection: {
-    marginBottom: hp(3),
   },
   tipsList: {
     backgroundColor: '#FFFFFF',
