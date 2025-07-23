@@ -36,6 +36,8 @@ const isSmallScreen = width < 375;
 // Constants
 const LOCATION_TIMEOUT = 10000; // 10 seconds
 const TIME_UPDATE_INTERVAL = 30000; // 30 seconds (more reasonable than 1 minute)
+const WEATHER_API_KEY = '4077bdbd3d10a0bedde1bf1fdd44606b';
+const WEATHER_BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
 const HomePage = () => {
   const navigation = useNavigation();
@@ -46,8 +48,9 @@ const HomePage = () => {
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const [locationName, setLocationName] = useState('Current Location');
-  const [weatherData, setWeatherData] = useState({ temp: '25°C', condition: 'Sunny' });
+  const [weatherData, setWeatherData] = useState({ temp: '25°C', condition: 'Sunny', icon: 'sunny-outline' });
   const [locationError, setLocationError] = useState(false);
+  const [weatherLoading, setWeatherLoading] = useState(false);
   
   // Animation values
   const fadeAnim = useMemo(() => new Animated.Value(0), []);
@@ -60,6 +63,71 @@ const HomePage = () => {
     if (hour < 18) return "Good Afternoon!";
     return "Good Evening!";
   }, []);
+
+  // Weather icon mapping
+  const getWeatherIcon = useCallback((weatherCode) => {
+    const iconMap = {
+      '01d': 'sunny-outline',
+      '01n': 'moon-outline',
+      '02d': 'partly-sunny-outline',
+      '02n': 'cloudy-night-outline',
+      '03d': 'cloud-outline',
+      '03n': 'cloud-outline',
+      '04d': 'cloudy-outline',
+      '04n': 'cloudy-outline',
+      '09d': 'rainy-outline',
+      '09n': 'rainy-outline',
+      '10d': 'rainy-outline',
+      '10n': 'rainy-outline',
+      '11d': 'thunderstorm-outline',
+      '11n': 'thunderstorm-outline',
+      '13d': 'snow-outline',
+      '13n': 'snow-outline',
+      '50d': 'partly-sunny-outline',
+      '50n': 'cloudy-night-outline',
+    };
+    return iconMap[weatherCode] || 'sunny-outline';
+  }, []);
+
+  // Fetch weather data
+  const fetchWeatherData = useCallback(async (latitude, longitude) => {
+    try {
+      setWeatherLoading(true);
+      const response = await fetch(
+        `${WEATHER_BASE_URL}?lat=${latitude}&lon=${longitude}&appid=${WEATHER_API_KEY}&units=metric`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Weather API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      const temperature = Math.round(data.main.temp);
+      const condition = data.weather[0].main;
+      const description = data.weather[0].description;
+      const iconCode = data.weather[0].icon;
+      
+      setWeatherData({
+        temp: `${temperature}°C`,
+        condition: condition,
+        description: description.charAt(0).toUpperCase() + description.slice(1),
+        icon: getWeatherIcon(iconCode),
+        humidity: data.main.humidity,
+        windSpeed: data.wind.speed,
+       // feelsLike: Math.round(data.main.feels_like)
+      });
+    } catch (error) {
+      console.error('Error fetching weather:', error);
+      // Keep default weather data if API fails
+      setWeatherData(prev => ({
+        ...prev,
+        condition: 'Weather unavailable'
+      }));
+    } finally {
+      setWeatherLoading(false);
+    }
+  }, [getWeatherIcon]);
 
   // Update time and date
   const updateDateTime = useCallback(() => {
@@ -98,6 +166,9 @@ const HomePage = () => {
       const { latitude, longitude } = locationData.coords;
       setLocation(locationData.coords);
       
+      // Fetch weather data for the current location
+      await fetchWeatherData(latitude, longitude);
+      
       // Reverse geocode with timeout
       const geocodePromise = Location.reverseGeocodeAsync({
         latitude,
@@ -132,7 +203,7 @@ const HomePage = () => {
       setLocationError(true);
       setLocationName('Location unavailable');
     }
-  }, []);
+  }, [fetchWeatherData]);
 
   // Initialize component
   useEffect(() => {
@@ -325,13 +396,25 @@ const HomePage = () => {
             </View>
             <View style={styles.weatherInfo}>
               <View style={styles.weatherItem}>
-                <Ionicons name="sunny-outline" size={wp(4)} color="#F59E0B" />
-                <Text style={styles.weatherText}>{weatherData.condition}, {weatherData.temp}</Text>
+                {weatherLoading ? (
+                  <ActivityIndicator size="small" color="#F59E0B" />
+                ) : (
+                  <Ionicons name={weatherData.icon} size={wp(4)} color="#F59E0B" />
+                )}
+                <Text style={styles.weatherText}>
+                  {weatherLoading ? 'Loading...' : `${weatherData.description || weatherData.condition}, ${weatherData.temp}`}
+                </Text>
               </View>
               <View style={styles.locationItem}>
                 <Ionicons name="location-outline" size={wp(4)} color="#64748B" />
                 <Text style={styles.weatherText} numberOfLines={1}>{locationName}</Text>
               </View>
+              {weatherData.feelsLike && (
+                <View style={styles.weatherItem}>
+                  <Ionicons name="thermometer-outline" size={wp(4)} color="#64748B" />
+                  <Text style={styles.weatherText}>Feels like {weatherData.feelsLike}°C</Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -680,9 +763,8 @@ const styles = StyleSheet.create({
     fontSize: wp(6),
   },
   weatherInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    gap: hp(0.8),
   },
   weatherItem: {
     flexDirection: 'row',
@@ -693,13 +775,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    justifyContent: 'flex-end',
   },
   weatherText: {
     fontSize: isTablet ? wp(3) : wp(3.5),
     color: '#64748B',
     marginLeft: wp(1.5),
     fontWeight: '500',
+    flex: 1,
   },
   quickActions: {
     marginBottom: hp(3),
