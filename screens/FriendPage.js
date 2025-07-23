@@ -20,7 +20,8 @@ import {
   StatusBar,
   Linking,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -31,7 +32,7 @@ export default function FriendTrackingSystem() {
   const [newFriendContact, setNewFriendContact] = useState("");
   const [peopleYouTrack, setPeopleYouTrack] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [error, setError] = useState(null);
   const [requestLoading, setRequestLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -39,37 +40,122 @@ export default function FriendTrackingSystem() {
   const [slideAnim] = useState(new Animated.Value(-100));
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [selectedFriendToRemove, setSelectedFriendToRemove] = useState(null);
-
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   const navigation = useNavigation();
 
+  // Storage keys
+  const STORAGE_KEYS = {
+    PEOPLE_YOU_TRACK: '@FriendTracking:peopleYouTrack',
+    PENDING_REQUESTS: '@FriendTracking:pendingRequests',
+    NOTIFICATIONS: '@FriendTracking:notifications',
+  };
+
+  // Load data from AsyncStorage
+  const loadStoredData = async () => {
+    try {
+      setLoading(true);
+      const [storedPeople, storedRequests, storedNotifications] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.PEOPLE_YOU_TRACK),
+        AsyncStorage.getItem(STORAGE_KEYS.PENDING_REQUESTS),
+        AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
+      ]);
+
+      if (storedPeople) {
+        setPeopleYouTrack(JSON.parse(storedPeople));
+      }
+
+      if (storedRequests) {
+        setPendingRequests(JSON.parse(storedRequests));
+      }
+
+      if (storedNotifications) {
+        setNotifications(JSON.parse(storedNotifications));
+      }
+
+      setIsDataLoaded(true);
+    } catch (error) {
+      console.error('Error loading stored data:', error);
+      setError('Failed to load saved data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save data to AsyncStorage
+  const saveDataToStorage = async (key, data) => {
+    try {
+      await AsyncStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error(`Error saving data to ${key}:`, error);
+    }
+  };
+
+  // Save people you track whenever it changes
   useEffect(() => {
-    // Animate header on load
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+    if (isDataLoaded) {
+      saveDataToStorage(STORAGE_KEYS.PEOPLE_YOU_TRACK, peopleYouTrack);
+    }
+  }, [peopleYouTrack, isDataLoaded]);
+
+  // Save pending requests whenever it changes
+  useEffect(() => {
+    if (isDataLoaded) {
+      saveDataToStorage(STORAGE_KEYS.PENDING_REQUESTS, pendingRequests);
+    }
+  }, [pendingRequests, isDataLoaded]);
+
+  // Save notifications whenever it changes
+  useEffect(() => {
+    if (isDataLoaded) {
+      saveDataToStorage(STORAGE_KEYS.NOTIFICATIONS, notifications);
+    }
+  }, [notifications, isDataLoaded]);
+
+  // Load data when component mounts or when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!isDataLoaded) {
+        loadStoredData();
+      }
+      
+      // Animate header when screen comes into focus
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, [fadeAnim, slideAnim, isDataLoaded])
+  );
 
   // Real-time updates - Check for accepted requests
   useEffect(() => {
-    const interval = setInterval(() => {
-      checkForRequestUpdates();
-    }, 3000); // Check every 3 seconds
+    let interval;
+    
+    if (isDataLoaded) {
+      interval = setInterval(() => {
+        checkForRequestUpdates();
+      }, 3000); // Check every 3 seconds
+    }
 
-    return () => clearInterval(interval);
-  }, [checkForRequestUpdates]);
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [checkForRequestUpdates, isDataLoaded]);
 
   // Mock function to simulate checking for request updates
   const checkForRequestUpdates = useCallback(() => {
+    if (!isDataLoaded) return;
+    
     setPendingRequests(prev => {
       const updated = [...prev];
       // Simulate random acceptance of pending requests (5% chance each check)
@@ -104,7 +190,7 @@ export default function FriendTrackingSystem() {
       
       return prev;
     });
-  }, []);
+  }, [isDataLoaded]);
 
   const addNotification = (message, type = 'info') => {
     const notification = {
@@ -134,18 +220,17 @@ export default function FriendTrackingSystem() {
   };
 
   // Add this function to handle removing a friend
-const removeFriend = (friendId) => {
-  setPeopleYouTrack(current => current.filter(friend => friend.id !== friendId));
-  addNotification(`Friend removed successfully`, 'success');
-  setRemoveModalVisible(false);
-  setSelectedFriendToRemove(null);
-};
+  const removeFriend = (friendId) => {
+    setPeopleYouTrack(current => current.filter(friend => friend.id !== friendId));
+    addNotification(`Friend removed successfully`, 'success');
+    setRemoveModalVisible(false);
+    setSelectedFriendToRemove(null);
+  };
 
-const handleMoreButtonPress = (friend) => {
-  setSelectedFriendToRemove(friend);
-  setRemoveModalVisible(true);
-};
-
+  const handleMoreButtonPress = (friend) => {
+    setSelectedFriendToRemove(friend);
+    setRemoveModalVisible(true);
+  };
 
   const sendTrackingRequest = async () => {
     if (!newFriendContact.trim() || !validateContact(newFriendContact.trim())) {
@@ -265,6 +350,24 @@ const handleMoreButtonPress = (friend) => {
     );
   };
 
+  // Add function to clear all data (useful for testing or reset)
+  const clearAllData = async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.PEOPLE_YOU_TRACK,
+        STORAGE_KEYS.PENDING_REQUESTS,
+        STORAGE_KEYS.NOTIFICATIONS,
+      ]);
+      setPeopleYouTrack([]);
+      setPendingRequests([]);
+      setNotifications([]);
+      addNotification('All data cleared successfully', 'success');
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      addNotification('Failed to clear data', 'error');
+    }
+  };
+
   const filteredPeople = peopleYouTrack.filter(person =>
     person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     person.contact.toLowerCase().includes(searchQuery.toLowerCase())
@@ -325,11 +428,11 @@ const handleMoreButtonPress = (friend) => {
         <View style={styles.timeContainer}>
           <Text style={styles.time}>{item.time}</Text>
           <TouchableOpacity 
-  style={styles.moreButton}
-  onPress={() => handleMoreButtonPress(item)}
->
-  <Text style={styles.moreButtonText}>⋯</Text>
-</TouchableOpacity>
+            style={styles.moreButton}
+            onPress={() => handleMoreButtonPress(item)}
+          >
+            <Text style={styles.moreButtonText}>⋯</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Animated.View>
@@ -371,8 +474,6 @@ const handleMoreButtonPress = (friend) => {
             item.type === 'error' ? '#FEE2E2' : '#DBEAFE'
         }
       ]}
-      entering={Animated.FadeInUp}
-      exiting={Animated.FadeOutUp}
     >
       <Text style={[
         styles.notificationText,
@@ -497,7 +598,7 @@ const handleMoreButtonPress = (friend) => {
               <View style={styles.errorContainer}>
                 <Text style={styles.errorIcon}>⚠️</Text>
                 <Text style={styles.errorText}>{error}</Text>
-                <TouchableOpacity style={styles.retryButton}>
+                <TouchableOpacity style={styles.retryButton} onPress={loadStoredData}>
                   <Text style={styles.retryButtonText}>Retry</Text>
                 </TouchableOpacity>
               </View>
@@ -569,6 +670,22 @@ const handleMoreButtonPress = (friend) => {
                     </View>
                   </Pressable>
                 ))}
+                
+                {/* Debug option to clear all data - remove in production */}
+                {__DEV__ && (
+                  <Pressable 
+                    style={[styles.modalItem, { backgroundColor: '#FEE2E2' }]} 
+                    onPress={clearAllData}
+                  >
+                    <View style={styles.modalIconContainer}>
+                      <Text style={styles.modalItemIconText}>🗑️</Text>
+                    </View>
+                    <View style={styles.modalTextContainer}>
+                      <Text style={styles.modalItemText}>Clear All Data</Text>
+                      <Text style={styles.modalItemSubtext}>Reset all stored data (Debug only)</Text>
+                    </View>
+                  </Pressable>
+                )}
               </View>
               
               <TouchableOpacity 
@@ -663,45 +780,46 @@ const handleMoreButtonPress = (friend) => {
             </KeyboardAvoidingView>
           </View>
         </Modal>
-        <Modal
-  animationType="fade"
-  transparent
-  visible={removeModalVisible}
-  onRequestClose={() => setRemoveModalVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <Pressable style={styles.modalBackdrop} onPress={() => setRemoveModalVisible(false)} />
-    <View style={styles.removeModalContainer}>
-      <View style={styles.removeModalContent}>
-        <Text style={styles.removeModalIcon}>⚠️</Text>
-        <Text style={styles.removeModalTitle}>Remove Friend</Text>
-        <Text style={styles.removeModalMessage}>
-          Are you sure you want to remove {selectedFriendToRemove?.name} from your tracking list? 
-          You won't be able to see their location anymore.
-        </Text>
         
-        <View style={styles.removeModalActions}>
-          <TouchableOpacity
-            style={styles.removeModalCancelButton}
-            onPress={() => {
-              setRemoveModalVisible(false);
-              setSelectedFriendToRemove(null);
-            }}
-          >
-            <Text style={styles.removeModalCancelText}>Cancel</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.removeModalConfirmButton}
-            onPress={() => removeFriend(selectedFriendToRemove?.id)}
-          >
-            <Text style={styles.removeModalConfirmText}>Remove</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  </View>
-</Modal>
+        <Modal
+          animationType="fade"
+          transparent
+          visible={removeModalVisible}
+          onRequestClose={() => setRemoveModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Pressable style={styles.modalBackdrop} onPress={() => setRemoveModalVisible(false)} />
+            <View style={styles.removeModalContainer}>
+              <View style={styles.removeModalContent}>
+                <Text style={styles.removeModalIcon}>⚠️</Text>
+                <Text style={styles.removeModalTitle}>Remove Friend</Text>
+                <Text style={styles.removeModalMessage}>
+                  Are you sure you want to remove {selectedFriendToRemove?.name} from your tracking list? 
+                  You won't be able to see their location anymore.
+                </Text>
+                
+                <View style={styles.removeModalActions}>
+                  <TouchableOpacity
+                    style={styles.removeModalCancelButton}
+                    onPress={() => {
+                      setRemoveModalVisible(false);
+                      setSelectedFriendToRemove(null);
+                    }}
+                  >
+                    <Text style={styles.removeModalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.removeModalConfirmButton}
+                    onPress={() => removeFriend(selectedFriendToRemove?.id)}
+                  >
+                    <Text style={styles.removeModalConfirmText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </>
   );
